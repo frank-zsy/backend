@@ -8,3 +8,6 @@ dependencies = [
     "django>=5.2.6",
     "pre-commit>=4.3.0",
 ]
+
+[tool.djlint]
+profile="django"
