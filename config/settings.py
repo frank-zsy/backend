@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "django_extensions",
     "social_django",
     "homepage",
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -144,6 +145,9 @@ AUTHENTICATION_BACKENDS = (
     "social_core.backends.github.GithubOAuth2",
     "django.contrib.auth.backends.ModelBackend",
 )
+
+# custom user
+AUTH_USER_MODEL = "accounts.User"
 
 SOCIAL_AUTH_URL_NAMESPACE = "social"
 SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = ["username", "first_name", "email"]
