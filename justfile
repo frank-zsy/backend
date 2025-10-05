@@ -10,6 +10,10 @@ worker:
 manage *args:
     @uv run manage.py {{args}}
 
+fmt:
+    @uvx ruff check   # Lint all files in the current directory.
+    @uvx ruff format  # Format all files in the current directory.
+
 db_update:
     @uv run manage.py makemigrations
     @uv run manage.py migrate

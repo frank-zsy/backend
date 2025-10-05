@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     # app
     "homepage",
     "accounts",
+    "points",
 ]
 
 MIDDLEWARE = [
