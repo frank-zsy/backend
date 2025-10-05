@@ -53,7 +53,7 @@ def profile_edit_view(request):
         UserProfile,
         WorkExperience,
         form=WorkExperienceForm,
-        extra=1,
+        extra=0,
         can_delete=True,
     )
 
@@ -61,7 +61,7 @@ def profile_edit_view(request):
         UserProfile,
         Education,
         form=EducationForm,
-        extra=1,
+        extra=0,
         can_delete=True,
     )
 

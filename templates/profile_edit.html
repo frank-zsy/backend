@@ -145,11 +145,49 @@
                             </div>
                             <hr class="my-4" />
                             <!-- 工作经历 -->
-                            <div class="mb-4">
-                                <h2 class="h5 mb-3 text-primary">
-                                    <i class="bi bi-briefcase"></i> 工作经历
-                                </h2>
+                            <div class="mb-4" x-data="workExperienceManager({{ work_formset.total_form_count }})">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h2 class="h5 mb-0 text-primary">
+                                        <i class="bi bi-briefcase"></i> 工作经历
+                                    </h2>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addForm()">
+                                        <i class="bi bi-plus-circle"></i> 添加工作经历
+                                    </button>
+                                </div>
                                 {{ work_formset.management_form }}
+                                <!-- 隐藏的模板表单 -->
+                                <template id="work-form-template">
+                                    <div class="border rounded p-3 mb-3 formset-form">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">公司名称</label>
+                                                <input type="text" name="work_experiences-__prefix__-company_name" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">职位</label>
+                                                <input type="text" name="work_experiences-__prefix__-title" class="form-control" />
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">开始日期</label>
+                                                <input type="date" name="work_experiences-__prefix__-start_date" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">结束日期 <small class="text-muted">(留空表示至今)</small></label>
+                                                <input type="date" name="work_experiences-__prefix__-end_date" class="form-control" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">工作描述</label>
+                                            <textarea name="work_experiences-__prefix__-description" rows="3" class="form-control"></textarea>
+                                        </div>
+                                        <input type="hidden" name="work_experiences-__prefix__-id" />
+                                        <button type="button" class="btn btn-sm btn-outline-danger" x-on:click="$el.closest('.formset-form').remove(); formCount--;">
+                                            <i class="bi bi-trash"></i> 删除
+                                        </button>
+                                    </div>
+                                </template>
                                 <div id="work-formset">
                                     {% for work_form in work_formset %}
                                         <div class="border rounded p-3 mb-3 formset-form">
@@ -232,11 +270,49 @@
                             </div>
                             <hr class="my-4" />
                             <!-- 学习经历 -->
-                            <div class="mb-4">
-                                <h2 class="h5 mb-3 text-primary">
-                                    <i class="bi bi-mortarboard"></i> 学习经历
-                                </h2>
+                            <div class="mb-4" x-data="educationManager({{ education_formset.total_form_count }})">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h2 class="h5 mb-0 text-primary">
+                                        <i class="bi bi-mortarboard"></i> 学习经历
+                                    </h2>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addForm()">
+                                        <i class="bi bi-plus-circle"></i> 添加学习经历
+                                    </button>
+                                </div>
                                 {{ education_formset.management_form }}
+                                <!-- 隐藏的模板表单 -->
+                                <template id="education-form-template">
+                                    <div class="border rounded p-3 mb-3 formset-form">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">学校/机构名称</label>
+                                                <input type="text" name="educations-__prefix__-institution_name" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">学位</label>
+                                                <input type="text" name="educations-__prefix__-degree" class="form-control" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">专业领域</label>
+                                            <input type="text" name="educations-__prefix__-field_of_study" class="form-control" />
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">开始日期</label>
+                                                <input type="date" name="educations-__prefix__-start_date" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">结束日期 <small class="text-muted">(留空表示至今)</small></label>
+                                                <input type="date" name="educations-__prefix__-end_date" class="form-control" />
+                                            </div>
+                                        </div>
+                                        <input type="hidden" name="educations-__prefix__-id" />
+                                        <button type="button" class="btn btn-sm btn-outline-danger" x-on:click="$el.closest('.formset-form').remove(); formCount--;">
+                                            <i class="bi bi-trash"></i> 删除
+                                        </button>
+                                    </div>
+                                </template>
                                 <div id="education-formset">
                                     {% for edu_form in education_formset %}
                                         <div class="border rounded p-3 mb-3 formset-form">
@@ -334,3 +410,42 @@
         </div>
     </div>
 {% endblock content %}
+{% block extra_js %}
+    <script>
+        function workExperienceManager(initialCount) {
+            return {
+                formCount: initialCount,
+                addForm() {
+                    const formset = document.getElementById('work-formset');
+                    const template = document.getElementById('work-form-template');
+                    const newForm = template.content.cloneNode(true).querySelector('.formset-form');
+
+                    // 更新表单索引，将 __prefix__ 替换为实际的索引
+                    newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, this.formCount);
+
+                    formset.appendChild(newForm);
+                    this.formCount++;
+                    document.getElementById('id_work_experiences-TOTAL_FORMS').value = this.formCount;
+                }
+            }
+        }
+
+        function educationManager(initialCount) {
+            return {
+                formCount: initialCount,
+                addForm() {
+                    const formset = document.getElementById('education-formset');
+                    const template = document.getElementById('education-form-template');
+                    const newForm = template.content.cloneNode(true).querySelector('.formset-form');
+
+                    // 更新表单索引，将 __prefix__ 替换为实际的索引
+                    newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, this.formCount);
+
+                    formset.appendChild(newForm);
+                    this.formCount++;
+                    document.getElementById('id_educations-TOTAL_FORMS').value = this.formCount;
+                }
+            }
+        }
+    </script>
+{% endblock extra_js %}
