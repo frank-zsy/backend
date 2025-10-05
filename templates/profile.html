@@ -185,6 +185,41 @@
                             </div>
                         {% endif %}
                         <hr class="my-4" />
+                        <!-- 我的积分 -->
+                        <div class="mb-4">
+                            <h2 class="h5 mb-3 text-primary">
+                                <i class="bi bi-coin"></i> 我的积分
+                            </h2>
+                            <div class="card border-primary">
+                                <div class="card-body">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-8">
+                                            <h3 class="h6 mb-2 text-muted">当前积分余额</h3>
+                                            <p class="h2 mb-0 text-primary fw-bold">
+                                                <i class="bi bi-award"></i> {{ user.total_points }}
+                                            </p>
+                                        </div>
+                                        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                            <a href="{% url 'points:my_points' %}" class="btn btn-primary">
+                                                <i class="bi bi-list-ul"></i> 查看详情
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {% if user.get_points_by_tag %}
+                                        <hr class="my-3" />
+                                        <div>
+                                            <small class="text-muted d-block mb-2">积分分类：</small>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                {% for item in user.get_points_by_tag %}
+                                                    <span class="badge bg-primary">{{ item.tag }}: {{ item.points }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <hr class="my-4" />
                         <!-- 账号安全 -->
                         <div class="mb-4">
                             <h2 class="h5 mb-3 text-primary">

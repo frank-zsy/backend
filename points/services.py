@@ -57,7 +57,6 @@ def grant_points(
         user_profile=user_profile,
         initial_points=points,
         remaining_points=points,
-        source_object=source_object,
     )
     # 关联标签
     new_source.tags.set(tags_to_add)

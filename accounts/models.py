@@ -2,12 +2,35 @@
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import Sum
 
 
 class User(AbstractUser):
     """Custom user model extending AbstractUser."""
 
     is_active = models.BooleanField(default=True)
+
+    @property
+    def total_points(self):
+        """Get total points for the user."""
+        total = self.point_sources.aggregate(total=Sum("remaining_points"))["total"]
+        return total or 0
+
+    def get_points_by_tag(self):
+        """
+        Get points grouped by tag.
+
+        Returns a list of dicts with tag name and total points.
+
+        """
+        tag_points = {}
+        for source in self.point_sources.filter(remaining_points__gt=0):
+            for tag in source.tags.all():
+                if tag.name not in tag_points:
+                    tag_points[tag.name] = 0
+                tag_points[tag.name] += source.remaining_points
+
+        return [{"tag": tag, "points": points} for tag, points in tag_points.items()]
 
 
 class UserProfile(models.Model):

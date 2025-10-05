@@ -37,6 +37,111 @@ class UserModelTests(TestCase):
 
         assert user.is_active
 
+    def test_total_points_with_no_sources(self):
+        """Test total_points returns 0 when user has no point sources."""
+        user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password123",
+        )
+
+        assert user.total_points == 0
+
+    def test_total_points_with_sources(self):
+        """Test total_points returns sum of remaining points."""
+        from points.models import PointSource, Tag
+
+        user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password123",
+        )
+
+        tag = Tag.objects.create(name="test-tag")
+
+        source1 = PointSource.objects.create(
+            user_profile=user, initial_points=100, remaining_points=80
+        )
+        source1.tags.add(tag)
+
+        source2 = PointSource.objects.create(
+            user_profile=user, initial_points=50, remaining_points=30
+        )
+        source2.tags.add(tag)
+
+        assert user.total_points == 110
+
+    def test_get_points_by_tag_empty(self):
+        """Test get_points_by_tag returns empty list when no sources."""
+        user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password123",
+        )
+
+        result = user.get_points_by_tag()
+
+        assert result == []
+
+    def test_get_points_by_tag_multiple_tags(self):
+        """Test get_points_by_tag groups points correctly."""
+        from points.models import PointSource, Tag
+
+        user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password123",
+        )
+
+        tag1 = Tag.objects.create(name="tag1")
+        tag2 = Tag.objects.create(name="tag2")
+
+        source1 = PointSource.objects.create(
+            user_profile=user, initial_points=100, remaining_points=80
+        )
+        source1.tags.add(tag1)
+
+        source2 = PointSource.objects.create(
+            user_profile=user, initial_points=50, remaining_points=30
+        )
+        source2.tags.add(tag1)
+        source2.tags.add(tag2)
+
+        result = user.get_points_by_tag()
+
+        assert len(result) == 2
+        tag_dict = {item["tag"]: item["points"] for item in result}
+        assert tag_dict["tag1"] == 110
+        assert tag_dict["tag2"] == 30
+
+    def test_get_points_by_tag_ignores_empty_sources(self):
+        """Test get_points_by_tag ignores sources with 0 remaining points."""
+        from points.models import PointSource, Tag
+
+        user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password123",
+        )
+
+        tag = Tag.objects.create(name="test-tag")
+
+        source1 = PointSource.objects.create(
+            user_profile=user, initial_points=100, remaining_points=50
+        )
+        source1.tags.add(tag)
+
+        source2 = PointSource.objects.create(
+            user_profile=user, initial_points=50, remaining_points=0
+        )
+        source2.tags.add(tag)
+
+        result = user.get_points_by_tag()
+
+        assert len(result) == 1
+        assert result[0]["tag"] == "test-tag"
+        assert result[0]["points"] == 50
+
 
 class UserProfileModelTests(TestCase):
     """Test cases for UserProfile model."""
@@ -468,6 +573,75 @@ class ProfileViewTests(TestCase):
         self.client.force_login(user)
         response = self.client.get(reverse("accounts:profile"))
         self.assertContains(response, "至今")
+
+    def test_profile_view_displays_points_info(self):
+        """Test that profile view displays user points information."""
+        from points.services import grant_points
+
+        user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
+        )
+
+        # Grant some points to the user
+        grant_points(
+            user_profile=user, points=100, description="Test", tag_names=["tag1"]
+        )
+        grant_points(
+            user_profile=user, points=50, description="Test", tag_names=["tag2"]
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("accounts:profile"))
+
+        # Check that points section is displayed
+        self.assertContains(response, "我的积分")
+        self.assertContains(response, "当前积分余额")
+        self.assertContains(response, "150")  # Total points
+        self.assertContains(response, "查看详情")
+        self.assertContains(response, reverse("points:my_points"))
+
+    def test_profile_view_displays_points_by_tag(self):
+        """Test that profile view displays points grouped by tags."""
+        from points.services import grant_points
+
+        user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
+        )
+
+        # Grant points with different tags
+        grant_points(
+            user_profile=user, points=100, description="Test", tag_names=["reward"]
+        )
+        grant_points(
+            user_profile=user, points=50, description="Test", tag_names=["bonus"]
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("accounts:profile"))
+
+        # Check that tag breakdown is displayed
+        self.assertContains(response, "积分分类")
+        self.assertContains(response, "reward")
+        self.assertContains(response, "bonus")
+
+    def test_profile_view_with_no_points(self):
+        """Test that profile view displays zero points when user has no points."""
+        user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("accounts:profile"))
+
+        # Check that points section is displayed with zero
+        self.assertContains(response, "我的积分")
+        self.assertContains(response, "0")  # Zero points
 
 
 class LogoutViewTests(TestCase):
