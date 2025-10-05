@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     "homepage",
     "accounts",
     "points",
+    "shop",
 ]
 
 MIDDLEWARE = [
