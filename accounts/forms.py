@@ -1,3 +1,5 @@
+"""Forms for user authentication and profile management."""
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
@@ -15,6 +17,8 @@ class SignUpForm(UserCreationForm):
     )
 
     class Meta:
+        """Meta configuration for SignUpForm."""
+
         model = get_user_model()
         fields = ("username", "email", "password1", "password2")
 
@@ -22,7 +26,8 @@ class SignUpForm(UserCreationForm):
         """Validate email is unique."""
         email = self.cleaned_data.get("email")
         if get_user_model().objects.filter(email=email).exists():
-            raise forms.ValidationError("该邮箱已被注册")
+            msg = "该邮箱已被注册"
+            raise forms.ValidationError(msg)
         return email
 
 
@@ -30,6 +35,8 @@ class ProfileForm(forms.ModelForm):
     """User profile editing form."""
 
     class Meta:
+        """Meta configuration for ProfileForm."""
+
         model = UserProfile
         fields = [
             "bio",
@@ -48,40 +55,40 @@ class ProfileForm(forms.ModelForm):
                     "class": "form-control",
                     "rows": 4,
                     "placeholder": "介绍一下你自己...",
-                }
+                },
             ),
             "birth_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "form-control", "type": "date"},
             ),
             "github_url": forms.URLInput(
                 attrs={
                     "class": "form-control",
                     "placeholder": "https://github.com/username",
-                }
+                },
             ),
             "homepage_url": forms.URLInput(
-                attrs={"class": "form-control", "placeholder": "https://yoursite.com"}
+                attrs={"class": "form-control", "placeholder": "https://yoursite.com"},
             ),
             "blog_url": forms.URLInput(
-                attrs={"class": "form-control", "placeholder": "https://yourblog.com"}
+                attrs={"class": "form-control", "placeholder": "https://yourblog.com"},
             ),
             "twitter_url": forms.URLInput(
                 attrs={
                     "class": "form-control",
                     "placeholder": "https://twitter.com/username",
-                }
+                },
             ),
             "linkedin_url": forms.URLInput(
                 attrs={
                     "class": "form-control",
                     "placeholder": "https://linkedin.com/in/username",
-                }
+                },
             ),
             "company": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "公司名称"}
+                attrs={"class": "form-control", "placeholder": "公司名称"},
             ),
             "location": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "城市, 国家"}
+                attrs={"class": "form-control", "placeholder": "城市, 国家"},
             ),
         }
 
@@ -90,27 +97,29 @@ class WorkExperienceForm(forms.ModelForm):
     """Work experience form."""
 
     class Meta:
+        """Meta configuration for WorkExperienceForm."""
+
         model = WorkExperience
         fields = ["company_name", "title", "start_date", "end_date", "description"]
         widgets = {
             "company_name": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "公司名称"}
+                attrs={"class": "form-control", "placeholder": "公司名称"},
             ),
             "title": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "职位"}
+                attrs={"class": "form-control", "placeholder": "职位"},
             ),
             "start_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "form-control", "type": "date"},
             ),
             "end_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "form-control", "type": "date"},
             ),
             "description": forms.Textarea(
                 attrs={
                     "class": "form-control",
                     "rows": 3,
                     "placeholder": "工作描述（可选）",
-                }
+                },
             ),
         }
 
@@ -121,7 +130,8 @@ class WorkExperienceForm(forms.ModelForm):
         end_date = cleaned_data.get("end_date")
 
         if start_date and end_date and start_date >= end_date:
-            raise forms.ValidationError("开始日期必须早于结束日期")
+            msg = "开始日期必须早于结束日期"
+            raise forms.ValidationError(msg)
 
         return cleaned_data
 
@@ -130,6 +140,8 @@ class EducationForm(forms.ModelForm):
     """Education form."""
 
     class Meta:
+        """Meta configuration for EducationForm."""
+
         model = Education
         fields = [
             "institution_name",
@@ -140,19 +152,22 @@ class EducationForm(forms.ModelForm):
         ]
         widgets = {
             "institution_name": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "学校/机构名称"}
+                attrs={"class": "form-control", "placeholder": "学校/机构名称"},
             ),
             "degree": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "学位（如：本科、硕士）"}
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "学位（如：本科、硕士）",
+                },
             ),
             "field_of_study": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "专业领域"}
+                attrs={"class": "form-control", "placeholder": "专业领域"},
             ),
             "start_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "form-control", "type": "date"},
             ),
             "end_date": forms.DateInput(
-                attrs={"class": "form-control", "type": "date"}
+                attrs={"class": "form-control", "type": "date"},
             ),
         }
 
@@ -163,6 +178,7 @@ class EducationForm(forms.ModelForm):
         end_date = cleaned_data.get("end_date")
 
         if start_date and end_date and start_date >= end_date:
-            raise forms.ValidationError("开始日期必须早于结束日期")
+            msg = "开始日期必须早于结束日期"
+            raise forms.ValidationError(msg)
 
         return cleaned_data

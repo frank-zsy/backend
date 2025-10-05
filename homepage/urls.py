@@ -1,3 +1,5 @@
+"""URL configuration for homepage app."""
+
 from django.urls import path
 
 from .views import index

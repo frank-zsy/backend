@@ -1,3 +1,5 @@
+"""Views for user authentication and profile management."""
+
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -38,14 +40,14 @@ def sign_up_view(request):
 @login_required
 def profile_view(request):
     """Display user profile page."""
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    profile, _created = UserProfile.objects.get_or_create(user=request.user)
     return render(request, "profile.html", {"profile": profile})
 
 
 @login_required
 def profile_edit_view(request):
     """Handle profile editing with Bootstrap 5 form."""
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    profile, _created = UserProfile.objects.get_or_create(user=request.user)
 
     WorkExperienceFormSet = inlineformset_factory(
         UserProfile,

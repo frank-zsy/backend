@@ -1,3 +1,5 @@
+"""Tests for accounts app."""
+
 from datetime import date
 
 from django.contrib import admin
@@ -10,18 +12,24 @@ from accounts.models import Education, UserProfile, WorkExperience
 
 
 class UserModelTests(TestCase):
+    """Test cases for User model."""
+
     def test_user_defaults_active(self):
+        """Test that user is active by default."""
         user = get_user_model().objects.create_user(
             username="active-user",
             email="active@example.com",
             password="password123",
         )
 
-        self.assertTrue(user.is_active)
+        assert user.is_active
 
 
 class UserProfileModelTests(TestCase):
+    """Test cases for UserProfile model."""
+
     def setUp(self):
+        """Set up test fixtures."""
         self.user = get_user_model().objects.create_user(
             username="testuser",
             email="test@example.com",
@@ -29,6 +37,7 @@ class UserProfileModelTests(TestCase):
         )
 
     def test_user_profile_creation(self):
+        """Test creating a user profile with all fields."""
         profile = UserProfile.objects.create(
             user=self.user,
             bio="Test bio",
@@ -42,31 +51,37 @@ class UserProfileModelTests(TestCase):
             location="Test City",
         )
 
-        self.assertEqual(profile.user, self.user)
-        self.assertEqual(profile.bio, "Test bio")
-        self.assertEqual(profile.birth_date, date(1990, 1, 1))
-        self.assertEqual(profile.github_url, "https://github.com/testuser")
-        self.assertEqual(profile.company, "Test Company")
-        self.assertEqual(profile.location, "Test City")
+        assert profile.user == self.user
+        assert profile.bio == "Test bio"
+        assert profile.birth_date == date(1990, 1, 1)
+        assert profile.github_url == "https://github.com/testuser"
+        assert profile.company == "Test Company"
+        assert profile.location == "Test City"
 
     def test_user_profile_str(self):
+        """Test string representation of user profile."""
         profile = UserProfile.objects.create(user=self.user)
-        self.assertEqual(str(profile), "testuser")
+        assert str(profile) == "testuser"
 
     def test_user_profile_optional_fields(self):
+        """Test that optional profile fields have default values."""
         profile = UserProfile.objects.create(user=self.user)
 
-        self.assertEqual(profile.bio, "")
-        self.assertIsNone(profile.birth_date)
-        self.assertEqual(profile.github_url, "")
+        assert profile.bio == ""
+        assert profile.birth_date is None
+        assert profile.github_url == ""
 
     def test_user_profile_one_to_one_relationship(self):
+        """Test one-to-one relationship between User and UserProfile."""
         profile = UserProfile.objects.create(user=self.user)
-        self.assertEqual(self.user.profile, profile)
+        assert self.user.profile == profile
 
 
 class WorkExperienceModelTests(TestCase):
+    """Test cases for WorkExperience model."""
+
     def setUp(self):
+        """Set up test fixtures."""
         self.user = get_user_model().objects.create_user(
             username="testuser",
             email="test@example.com",
@@ -75,6 +90,7 @@ class WorkExperienceModelTests(TestCase):
         self.profile = UserProfile.objects.create(user=self.user)
 
     def test_work_experience_creation(self):
+        """Test creating a work experience with all fields."""
         work_exp = WorkExperience.objects.create(
             profile=self.profile,
             company_name="Test Company",
@@ -84,14 +100,15 @@ class WorkExperienceModelTests(TestCase):
             description="Test description",
         )
 
-        self.assertEqual(work_exp.profile, self.profile)
-        self.assertEqual(work_exp.company_name, "Test Company")
-        self.assertEqual(work_exp.title, "Software Engineer")
-        self.assertEqual(work_exp.start_date, date(2020, 1, 1))
-        self.assertEqual(work_exp.end_date, date(2022, 12, 31))
-        self.assertEqual(work_exp.description, "Test description")
+        assert work_exp.profile == self.profile
+        assert work_exp.company_name == "Test Company"
+        assert work_exp.title == "Software Engineer"
+        assert work_exp.start_date == date(2020, 1, 1)
+        assert work_exp.end_date == date(2022, 12, 31)
+        assert work_exp.description == "Test description"
 
     def test_work_experience_current_job(self):
+        """Test work experience without end date for current jobs."""
         work_exp = WorkExperience.objects.create(
             profile=self.profile,
             company_name="Current Company",
@@ -99,9 +116,10 @@ class WorkExperienceModelTests(TestCase):
             start_date=date(2023, 1, 1),
         )
 
-        self.assertIsNone(work_exp.end_date)
+        assert work_exp.end_date is None
 
     def test_work_experience_ordering(self):
+        """Test that work experiences are ordered by start date descending."""
         work_exp1 = WorkExperience.objects.create(
             profile=self.profile,
             company_name="Old Company",
@@ -117,12 +135,15 @@ class WorkExperienceModelTests(TestCase):
         )
 
         work_experiences = self.profile.work_experiences.all()
-        self.assertEqual(work_experiences[0], work_exp2)
-        self.assertEqual(work_experiences[1], work_exp1)
+        assert work_experiences[0] == work_exp2
+        assert work_experiences[1] == work_exp1
 
 
 class EducationModelTests(TestCase):
+    """Test cases for Education model."""
+
     def setUp(self):
+        """Set up test fixtures."""
         self.user = get_user_model().objects.create_user(
             username="testuser",
             email="test@example.com",
@@ -131,6 +152,7 @@ class EducationModelTests(TestCase):
         self.profile = UserProfile.objects.create(user=self.user)
 
     def test_education_creation(self):
+        """Test creating an education record with all fields."""
         education = Education.objects.create(
             profile=self.profile,
             institution_name="Test University",
@@ -140,14 +162,15 @@ class EducationModelTests(TestCase):
             end_date=date(2019, 6, 30),
         )
 
-        self.assertEqual(education.profile, self.profile)
-        self.assertEqual(education.institution_name, "Test University")
-        self.assertEqual(education.degree, "本科")
-        self.assertEqual(education.field_of_study, "Computer Science")
-        self.assertEqual(education.start_date, date(2015, 9, 1))
-        self.assertEqual(education.end_date, date(2019, 6, 30))
+        assert education.profile == self.profile
+        assert education.institution_name == "Test University"
+        assert education.degree == "本科"
+        assert education.field_of_study == "Computer Science"
+        assert education.start_date == date(2015, 9, 1)
+        assert education.end_date == date(2019, 6, 30)
 
     def test_education_ongoing(self):
+        """Test education record without end date for ongoing education."""
         education = Education.objects.create(
             profile=self.profile,
             institution_name="Current University",
@@ -156,9 +179,10 @@ class EducationModelTests(TestCase):
             start_date=date(2023, 9, 1),
         )
 
-        self.assertIsNone(education.end_date)
+        assert education.end_date is None
 
     def test_education_ordering(self):
+        """Test that education records are ordered by start date descending."""
         edu1 = Education.objects.create(
             profile=self.profile,
             institution_name="Old School",
@@ -174,33 +198,39 @@ class EducationModelTests(TestCase):
         )
 
         educations = self.profile.educations.all()
-        self.assertEqual(educations[0], edu2)
-        self.assertEqual(educations[1], edu1)
+        assert educations[0] == edu2
+        assert educations[1] == edu1
 
 
 class UserAdminRegistrationTests(TestCase):
+    """Test cases for User model admin registration."""
+
     databases = {"default"}
 
     def test_user_registered_with_admin_site(self):
+        """Test that User model is registered with Django admin."""
         from accounts import admin as accounts_admin
 
         user_model = get_user_model()
 
-        self.assertIn(user_model, admin.site._registry)
-        self.assertIsInstance(
-            admin.site._registry[user_model],
-            accounts_admin.UserAdmin,
-        )
+        assert user_model in admin.site._registry
+        assert isinstance(admin.site._registry[user_model], accounts_admin.UserAdmin)
 
 
 class AccountsIndexViewTests(TestCase):
+    """Test cases for accounts index view."""
+
     def test_accounts_index_redirects_to_signin_when_not_authenticated(self):
+        """Test that unauthenticated users are redirected to sign in page."""
         response = self.client.get(reverse("accounts:index"))
         self.assertRedirects(response, reverse("accounts:sign_in"))
 
     def test_accounts_index_redirects_to_profile_when_authenticated(self):
+        """Test that authenticated users are redirected to profile page."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         response = self.client.get(reverse("accounts:index"))
@@ -208,38 +238,50 @@ class AccountsIndexViewTests(TestCase):
 
 
 class SignInViewTests(TestCase):
+    """Test cases for sign in view."""
+
     def test_sign_in_view_status_code(self):
+        """Test that sign in page returns 200 status code."""
         response = self.client.get(reverse("accounts:sign_in"))
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
 
     def test_sign_in_view_template(self):
+        """Test that sign in view uses correct template."""
         response = self.client.get(reverse("accounts:sign_in"))
         self.assertTemplateUsed(response, "sign_in.html")
 
     def test_sign_in_view_contains_email_form(self):
+        """Test that sign in form contains email and password fields."""
         response = self.client.get(reverse("accounts:sign_in"))
         self.assertContains(response, "email")
         self.assertContains(response, "password")
 
     def test_sign_in_view_contains_username_form(self):
+        """Test that sign in form contains username field."""
         response = self.client.get(reverse("accounts:sign_in"))
         self.assertContains(response, "username")
 
     def test_sign_in_view_contains_signup_link(self):
+        """Test that sign in page contains link to sign up page."""
         response = self.client.get(reverse("accounts:sign_in"))
         self.assertContains(response, reverse("accounts:sign_up"))
 
 
 class SignUpViewTests(TestCase):
+    """Test cases for sign up view."""
+
     def test_sign_up_view_get_status_code(self):
+        """Test that sign up page returns 200 status code."""
         response = self.client.get(reverse("accounts:sign_up"))
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
 
     def test_sign_up_view_template(self):
+        """Test that sign up view uses correct template."""
         response = self.client.get(reverse("accounts:sign_up"))
         self.assertTemplateUsed(response, "sign_up.html")
 
     def test_sign_up_view_contains_form_fields(self):
+        """Test that sign up form contains all required fields."""
         response = self.client.get(reverse("accounts:sign_up"))
         self.assertContains(response, "username")
         self.assertContains(response, "email")
@@ -247,6 +289,7 @@ class SignUpViewTests(TestCase):
         self.assertContains(response, "password2")
 
     def test_sign_up_view_post_valid_data(self):
+        """Test that posting valid data creates a new user."""
         data = {
             "username": "newuser",
             "email": "newuser@example.com",
@@ -254,10 +297,11 @@ class SignUpViewTests(TestCase):
             "password2": "testpass123",
         }
         response = self.client.post(reverse("accounts:sign_up"), data)
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(get_user_model().objects.filter(username="newuser").exists())
+        assert response.status_code == 302
+        assert get_user_model().objects.filter(username="newuser").exists()
 
     def test_sign_up_view_post_invalid_password_mismatch(self):
+        """Test that password mismatch prevents user creation."""
         data = {
             "username": "newuser",
             "email": "newuser@example.com",
@@ -265,32 +309,42 @@ class SignUpViewTests(TestCase):
             "password2": "wrongpass123",
         }
         response = self.client.post(reverse("accounts:sign_up"), data)
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(get_user_model().objects.filter(username="newuser").exists())
+        assert response.status_code == 200
+        assert not get_user_model().objects.filter(username="newuser").exists()
 
     def test_sign_up_view_contains_signin_link(self):
+        """Test that sign up page contains link to sign in page."""
         response = self.client.get(reverse("accounts:sign_up"))
         self.assertContains(response, reverse("accounts:sign_in"))
 
 
 class ProfileViewTests(TestCase):
+    """Test cases for profile view."""
+
     def test_profile_view_requires_login(self):
+        """Test that profile view requires user authentication."""
         response = self.client.get(reverse("accounts:profile"))
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/accounts/login/"))
+        assert response.status_code == 302
+        assert response.url.startswith("/accounts/login/")
 
     def test_profile_view_authenticated_user(self):
+        """Test that authenticated users can access profile page."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         response = self.client.get(reverse("accounts:profile"))
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
         self.assertTemplateUsed(response, "profile.html")
 
     def test_profile_view_displays_user_info(self):
+        """Test that profile view displays user information."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         response = self.client.get(reverse("accounts:profile"))
@@ -298,18 +352,24 @@ class ProfileViewTests(TestCase):
         self.assertContains(response, "test@example.com")
 
     def test_profile_view_creates_profile_if_not_exists(self):
+        """Test that profile view creates UserProfile if it doesn't exist."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
-        self.assertFalse(UserProfile.objects.filter(user=user).exists())
+        assert not UserProfile.objects.filter(user=user).exists()
         response = self.client.get(reverse("accounts:profile"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(UserProfile.objects.filter(user=user).exists())
+        assert response.status_code == 200
+        assert UserProfile.objects.filter(user=user).exists()
 
     def test_profile_view_displays_profile_data(self):
+        """Test that profile view displays user profile data."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         UserProfile.objects.create(
             user=user,
@@ -326,8 +386,11 @@ class ProfileViewTests(TestCase):
         self.assertContains(response, "https://github.com/testuser")
 
     def test_profile_view_displays_work_experience(self):
+        """Test that profile view displays work experience data."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         profile = UserProfile.objects.create(user=user)
         WorkExperience.objects.create(
@@ -346,8 +409,11 @@ class ProfileViewTests(TestCase):
         self.assertContains(response, "Test work description")
 
     def test_profile_view_displays_education(self):
+        """Test that profile view displays education data."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         profile = UserProfile.objects.create(user=user)
         Education.objects.create(
@@ -366,8 +432,11 @@ class ProfileViewTests(TestCase):
         self.assertContains(response, "Computer Science")
 
     def test_profile_view_current_work_and_education(self):
+        """Test that profile view displays current work and education with '至今'."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         profile = UserProfile.objects.create(user=user)
         WorkExperience.objects.create(
@@ -389,62 +458,83 @@ class ProfileViewTests(TestCase):
 
 
 class LogoutViewTests(TestCase):
+    """Test cases for logout view."""
+
     def test_logout_view_requires_login(self):
+        """Test that logout view requires user authentication."""
         response = self.client.get(reverse("accounts:logout"))
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/accounts/login/"))
+        assert response.status_code == 302
+        assert response.url.startswith("/accounts/login/")
 
     def test_logout_view_logs_out_user(self):
+        """Test that logout view successfully logs out the user."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
-        self.assertTrue(self.client.session.get("_auth_user_id"))
+        assert self.client.session.get("_auth_user_id")
 
         response = self.client.get(reverse("accounts:logout"))
 
         self.assertRedirects(response, reverse("homepage:index"))
-        self.assertFalse(self.client.session.get("_auth_user_id"))
+        assert not self.client.session.get("_auth_user_id")
 
     def test_logout_view_displays_success_message(self):
+        """Test that logout view displays success message."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         response = self.client.get(reverse("accounts:logout"), follow=True)
         messages = list(response.context["messages"])
-        self.assertEqual(len(messages), 1)
-        self.assertEqual(str(messages[0]), "您已成功退出登录")
+        assert len(messages) == 1
+        assert str(messages[0]) == "您已成功退出登录"
 
 
 class ProfileEditViewTests(TestCase):
+    """Test cases for profile edit view."""
+
     def test_profile_edit_view_requires_login(self):
+        """Test that profile edit view requires user authentication."""
         response = self.client.get(reverse("accounts:profile_edit"))
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith("/accounts/login/"))
+        assert response.status_code == 302
+        assert response.url.startswith("/accounts/login/")
 
     def test_profile_edit_view_get_authenticated(self):
+        """Test that authenticated users can access profile edit page."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         response = self.client.get(reverse("accounts:profile_edit"))
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
         self.assertTemplateUsed(response, "profile_edit.html")
 
     def test_profile_edit_view_creates_profile_if_not_exists(self):
+        """Test that profile edit view creates UserProfile if it doesn't exist."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
-        self.assertFalse(UserProfile.objects.filter(user=user).exists())
+        assert not UserProfile.objects.filter(user=user).exists()
         response = self.client.get(reverse("accounts:profile_edit"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(UserProfile.objects.filter(user=user).exists())
+        assert response.status_code == 200
+        assert UserProfile.objects.filter(user=user).exists()
 
     def test_profile_edit_view_post_valid_data(self):
+        """Test that posting valid data updates user profile."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         data = {
@@ -469,16 +559,21 @@ class ProfileEditViewTests(TestCase):
         response = self.client.post(reverse("accounts:profile_edit"), data)
         self.assertRedirects(response, reverse("accounts:profile"))
         profile = UserProfile.objects.get(user=user)
-        self.assertEqual(profile.bio, "Updated bio")
-        self.assertEqual(profile.company, "New Company")
-        self.assertEqual(profile.location, "New City")
+        assert profile.bio == "Updated bio"
+        assert profile.company == "New Company"
+        assert profile.location == "New City"
 
     def test_profile_edit_view_post_no_changes(self):
+        """Test that posting data with no changes displays appropriate message."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         UserProfile.objects.create(
-            user=user, bio="Original bio", company="Original Company"
+            user=user,
+            bio="Original bio",
+            company="Original Company",
         )
         self.client.force_login(user)
         data = {
@@ -502,15 +597,20 @@ class ProfileEditViewTests(TestCase):
         }
         response = self.client.post(reverse("accounts:profile_edit"), data, follow=True)
         messages = list(response.context["messages"])
-        self.assertEqual(len(messages), 1)
-        self.assertEqual(str(messages[0]), "未检测到任何更改")
+        assert len(messages) == 1
+        assert str(messages[0]) == "未检测到任何更改"
 
     def test_profile_edit_view_post_with_changes(self):
+        """Test that posting data with changes updates profile and shows success message."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         profile = UserProfile.objects.create(
-            user=user, bio="Original bio", company="Original Company"
+            user=user,
+            bio="Original bio",
+            company="Original Company",
         )
         self.client.force_login(user)
         data = {
@@ -534,14 +634,17 @@ class ProfileEditViewTests(TestCase):
         }
         response = self.client.post(reverse("accounts:profile_edit"), data, follow=True)
         messages = list(response.context["messages"])
-        self.assertEqual(len(messages), 1)
-        self.assertEqual(str(messages[0]), "个人资料已更新")
+        assert len(messages) == 1
+        assert str(messages[0]) == "个人资料已更新"
         profile.refresh_from_db()
-        self.assertEqual(profile.bio, "Updated bio")
+        assert profile.bio == "Updated bio"
 
     def test_profile_edit_view_displays_form(self):
+        """Test that profile edit view displays the form correctly."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         response = self.client.get(reverse("accounts:profile_edit"))
@@ -549,8 +652,11 @@ class ProfileEditViewTests(TestCase):
         self.assertContains(response, "保存更改")
 
     def test_profile_edit_view_add_work_experience(self):
+        """Test that adding work experience through profile edit works correctly."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         data = {
@@ -578,14 +684,17 @@ class ProfileEditViewTests(TestCase):
             "educations-MAX_NUM_FORMS": "1000",
         }
         self.client.post(reverse("accounts:profile_edit"), data, follow=True)
-        self.assertEqual(WorkExperience.objects.count(), 1)
+        assert WorkExperience.objects.count() == 1
         work = WorkExperience.objects.first()
-        self.assertEqual(work.company_name, "Test Company")
-        self.assertEqual(work.title, "Software Engineer")
+        assert work.company_name == "Test Company"
+        assert work.title == "Software Engineer"
 
     def test_profile_edit_view_add_education(self):
+        """Test that adding education through profile edit works correctly."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         data = {
@@ -613,14 +722,17 @@ class ProfileEditViewTests(TestCase):
             "educations-0-end_date": "2019-06-30",
         }
         self.client.post(reverse("accounts:profile_edit"), data, follow=True)
-        self.assertEqual(Education.objects.count(), 1)
+        assert Education.objects.count() == 1
         edu = Education.objects.first()
-        self.assertEqual(edu.institution_name, "Test University")
-        self.assertEqual(edu.field_of_study, "Computer Science")
+        assert edu.institution_name == "Test University"
+        assert edu.field_of_study == "Computer Science"
 
     def test_profile_edit_view_delete_work_experience(self):
+        """Test that deleting work experience through profile edit works correctly."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         profile = UserProfile.objects.create(user=user)
         work = WorkExperience.objects.create(
@@ -658,11 +770,14 @@ class ProfileEditViewTests(TestCase):
             "educations-MAX_NUM_FORMS": "1000",
         }
         self.client.post(reverse("accounts:profile_edit"), data, follow=True)
-        self.assertEqual(WorkExperience.objects.count(), 0)
+        assert WorkExperience.objects.count() == 0
 
     def test_profile_edit_view_delete_education(self):
+        """Test that deleting education through profile edit works correctly."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         profile = UserProfile.objects.create(user=user)
         edu = Education.objects.create(
@@ -700,11 +815,14 @@ class ProfileEditViewTests(TestCase):
             "educations-0-DELETE": "on",
         }
         self.client.post(reverse("accounts:profile_edit"), data, follow=True)
-        self.assertEqual(Education.objects.count(), 0)
+        assert Education.objects.count() == 0
 
     def test_profile_edit_view_displays_date_validation_error(self):
+        """Test that invalid date ranges display validation errors."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.client.force_login(user)
         data = {
@@ -732,12 +850,15 @@ class ProfileEditViewTests(TestCase):
             "educations-MAX_NUM_FORMS": "1000",
         }
         response = self.client.post(reverse("accounts:profile_edit"), data)
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
         self.assertContains(response, "开始日期必须早于结束日期")
 
     def test_profile_edit_view_displays_existing_experiences(self):
+        """Test that profile edit view displays existing work and education data."""
         user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         profile = UserProfile.objects.create(user=user)
         WorkExperience.objects.create(
@@ -761,18 +882,22 @@ class ProfileEditViewTests(TestCase):
 
 
 class SignUpFormTests(TestCase):
+    """Test cases for SignUpForm."""
+
     def test_signup_form_valid_data(self):
+        """Test that form is valid with correct data."""
         form = SignUpForm(
             data={
                 "username": "testuser",
                 "email": "test@example.com",
                 "password1": "testpass123",
                 "password2": "testpass123",
-            }
+            },
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
 
     def test_signup_form_duplicate_email(self):
+        """Test that form is invalid with duplicate email."""
         get_user_model().objects.create_user(
             username="existing",
             email="test@example.com",
@@ -784,46 +909,54 @@ class SignUpFormTests(TestCase):
                 "email": "test@example.com",
                 "password1": "testpass123",
                 "password2": "testpass123",
-            }
+            },
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("email", form.errors)
+        assert not form.is_valid()
+        assert "email" in form.errors
 
     def test_signup_form_password_mismatch(self):
+        """Test that form is invalid when passwords don't match."""
         form = SignUpForm(
             data={
                 "username": "testuser",
                 "email": "test@example.com",
                 "password1": "testpass123",
                 "password2": "wrongpass123",
-            }
+            },
         )
-        self.assertFalse(form.is_valid())
+        assert not form.is_valid()
 
     def test_signup_form_creates_user(self):
+        """Test that form successfully creates a new user."""
         form = SignUpForm(
             data={
                 "username": "testuser",
                 "email": "test@example.com",
                 "password1": "testpass123",
                 "password2": "testpass123",
-            }
+            },
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
         user = form.save()
-        self.assertEqual(user.username, "testuser")
-        self.assertEqual(user.email, "test@example.com")
-        self.assertTrue(user.check_password("testpass123"))
+        assert user.username == "testuser"
+        assert user.email == "test@example.com"
+        assert user.check_password("testpass123")
 
 
 class ProfileFormTests(TestCase):
+    """Test cases for ProfileForm."""
+
     def setUp(self):
+        """Set up test fixtures."""
         self.user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.profile = UserProfile.objects.create(user=self.user)
 
     def test_profile_form_valid_data(self):
+        """Test that profile form is valid with complete data."""
         form = ProfileForm(
             data={
                 "bio": "Test bio",
@@ -838,9 +971,10 @@ class ProfileFormTests(TestCase):
             },
             instance=self.profile,
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
 
     def test_profile_form_empty_data(self):
+        """Test that profile form is valid with empty optional fields."""
         form = ProfileForm(
             data={
                 "bio": "",
@@ -855,9 +989,10 @@ class ProfileFormTests(TestCase):
             },
             instance=self.profile,
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
 
     def test_profile_form_saves_data(self):
+        """Test that profile form saves data correctly."""
         form = ProfileForm(
             data={
                 "bio": "Updated bio",
@@ -872,14 +1007,15 @@ class ProfileFormTests(TestCase):
             },
             instance=self.profile,
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
         profile = form.save()
-        self.assertEqual(profile.bio, "Updated bio")
-        self.assertEqual(profile.company, "Updated Company")
-        self.assertEqual(profile.location, "Updated City")
-        self.assertEqual(profile.github_url, "https://github.com/updated")
+        assert profile.bio == "Updated bio"
+        assert profile.company == "Updated Company"
+        assert profile.location == "Updated City"
+        assert profile.github_url == "https://github.com/updated"
 
     def test_profile_form_invalid_url(self):
+        """Test that profile form is invalid with malformed URLs."""
         form = ProfileForm(
             data={
                 "bio": "",
@@ -894,24 +1030,31 @@ class ProfileFormTests(TestCase):
             },
             instance=self.profile,
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("github_url", form.errors)
+        assert not form.is_valid()
+        assert "github_url" in form.errors
 
     def test_profile_form_widget_classes(self):
+        """Test that profile form widgets have correct CSS classes."""
         form = ProfileForm(instance=self.profile)
-        self.assertIn("form-control", form.fields["bio"].widget.attrs["class"])
-        self.assertIn("form-control", form.fields["company"].widget.attrs["class"])
-        self.assertIn("form-control", form.fields["location"].widget.attrs["class"])
+        assert "form-control" in form.fields["bio"].widget.attrs["class"]
+        assert "form-control" in form.fields["company"].widget.attrs["class"]
+        assert "form-control" in form.fields["location"].widget.attrs["class"]
 
 
 class WorkExperienceFormTests(TestCase):
+    """Test cases for WorkExperienceForm."""
+
     def setUp(self):
+        """Set up test fixtures."""
         self.user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.profile = UserProfile.objects.create(user=self.user)
 
     def test_work_experience_form_valid_data(self):
+        """Test that work experience form is valid with complete data."""
         form = WorkExperienceForm(
             data={
                 "company_name": "Test Company",
@@ -919,11 +1062,12 @@ class WorkExperienceFormTests(TestCase):
                 "start_date": "2020-01-01",
                 "end_date": "2022-12-31",
                 "description": "Test description",
-            }
+            },
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
 
     def test_work_experience_form_no_end_date(self):
+        """Test that work experience form is valid without end date for current jobs."""
         form = WorkExperienceForm(
             data={
                 "company_name": "Current Company",
@@ -931,11 +1075,12 @@ class WorkExperienceFormTests(TestCase):
                 "start_date": "2023-01-01",
                 "end_date": "",
                 "description": "",
-            }
+            },
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
 
     def test_work_experience_form_saves_data(self):
+        """Test that work experience form saves data correctly."""
         form = WorkExperienceForm(
             data={
                 "company_name": "Test Company",
@@ -943,16 +1088,17 @@ class WorkExperienceFormTests(TestCase):
                 "start_date": "2020-01-01",
                 "end_date": "",
                 "description": "Test",
-            }
+            },
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
         work = form.save(commit=False)
         work.profile = self.profile
         work.save()
-        self.assertEqual(work.company_name, "Test Company")
-        self.assertEqual(work.title, "Engineer")
+        assert work.company_name == "Test Company"
+        assert work.title == "Engineer"
 
     def test_work_experience_form_invalid_date_range(self):
+        """Test that form is invalid when end date is before start date."""
         form = WorkExperienceForm(
             data={
                 "company_name": "Test Company",
@@ -960,12 +1106,13 @@ class WorkExperienceFormTests(TestCase):
                 "start_date": "2022-12-31",
                 "end_date": "2020-01-01",
                 "description": "",
-            }
+            },
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("开始日期必须早于结束日期", str(form.errors))
+        assert not form.is_valid()
+        assert "开始日期必须早于结束日期" in str(form.errors)
 
     def test_work_experience_form_same_start_end_date(self):
+        """Test that form is invalid when start and end dates are the same."""
         form = WorkExperienceForm(
             data={
                 "company_name": "Test Company",
@@ -973,20 +1120,26 @@ class WorkExperienceFormTests(TestCase):
                 "start_date": "2020-01-01",
                 "end_date": "2020-01-01",
                 "description": "",
-            }
+            },
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("开始日期必须早于结束日期", str(form.errors))
+        assert not form.is_valid()
+        assert "开始日期必须早于结束日期" in str(form.errors)
 
 
 class EducationFormTests(TestCase):
+    """Test cases for EducationForm."""
+
     def setUp(self):
+        """Set up test fixtures."""
         self.user = get_user_model().objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
         self.profile = UserProfile.objects.create(user=self.user)
 
     def test_education_form_valid_data(self):
+        """Test that education form is valid with complete data."""
         form = EducationForm(
             data={
                 "institution_name": "Test University",
@@ -994,11 +1147,12 @@ class EducationFormTests(TestCase):
                 "field_of_study": "Computer Science",
                 "start_date": "2015-09-01",
                 "end_date": "2019-06-30",
-            }
+            },
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
 
     def test_education_form_no_end_date(self):
+        """Test that education form is valid without end date for ongoing education."""
         form = EducationForm(
             data={
                 "institution_name": "Current University",
@@ -1006,11 +1160,12 @@ class EducationFormTests(TestCase):
                 "field_of_study": "AI",
                 "start_date": "2023-09-01",
                 "end_date": "",
-            }
+            },
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
 
     def test_education_form_saves_data(self):
+        """Test that education form saves data correctly."""
         form = EducationForm(
             data={
                 "institution_name": "Test University",
@@ -1018,16 +1173,17 @@ class EducationFormTests(TestCase):
                 "field_of_study": "CS",
                 "start_date": "2015-09-01",
                 "end_date": "2019-06-30",
-            }
+            },
         )
-        self.assertTrue(form.is_valid())
+        assert form.is_valid()
         edu = form.save(commit=False)
         edu.profile = self.profile
         edu.save()
-        self.assertEqual(edu.institution_name, "Test University")
-        self.assertEqual(edu.field_of_study, "CS")
+        assert edu.institution_name == "Test University"
+        assert edu.field_of_study == "CS"
 
     def test_education_form_invalid_date_range(self):
+        """Test that form is invalid when end date is before start date."""
         form = EducationForm(
             data={
                 "institution_name": "Test University",
@@ -1035,12 +1191,13 @@ class EducationFormTests(TestCase):
                 "field_of_study": "CS",
                 "start_date": "2019-06-30",
                 "end_date": "2015-09-01",
-            }
+            },
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("开始日期必须早于结束日期", str(form.errors))
+        assert not form.is_valid()
+        assert "开始日期必须早于结束日期" in str(form.errors)
 
     def test_education_form_same_start_end_date(self):
+        """Test that form is invalid when start and end dates are the same."""
         form = EducationForm(
             data={
                 "institution_name": "Test University",
@@ -1048,7 +1205,7 @@ class EducationFormTests(TestCase):
                 "field_of_study": "CS",
                 "start_date": "2015-09-01",
                 "end_date": "2015-09-01",
-            }
+            },
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("开始日期必须早于结束日期", str(form.errors))
+        assert not form.is_valid()
+        assert "开始日期必须早于结束日期" in str(form.errors)

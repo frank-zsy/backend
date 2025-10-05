@@ -1,3 +1,5 @@
+"""Django settings for fullsite project."""
+
 from pathlib import Path
 
 import environ
@@ -103,7 +105,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
-    }
+    },
 }
 
 

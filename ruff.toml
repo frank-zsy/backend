@@ -69,6 +69,8 @@ ignore = [
     "S106",      # Hardcoded passwords in tests are acceptable
     "DJ008",     # Django models don't always need __str__ methods
     "E501",      # Long lines are sometimes necessary for readability
+    "D212",
+    "D203"
 ]
 
 fixable = ["ALL"]
