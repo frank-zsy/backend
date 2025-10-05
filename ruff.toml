@@ -55,7 +55,6 @@ select = [
    "TID",
    "TD",
    "RUF",
-   "DOC",
    "COM",
    "C90"
 ]
@@ -70,7 +69,8 @@ ignore = [
     "DJ008",     # Django models don't always need __str__ methods
     "E501",      # Long lines are sometimes necessary for readability
     "D212",
-    "D203"
+    "D203",
+    "COM812"
 ]
 
 fixable = ["ALL"]
