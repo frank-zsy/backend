@@ -4,6 +4,11 @@ run:
 sh:
     @uv run manage.py shell_plus
 
+
+db_update:
+    @uv run manage.py makemigrations
+    @uv run manage.py migrate
+
 test:
     uv run coverage run manage.py test --parallel
     uv run coverage combine
