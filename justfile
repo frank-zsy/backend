@@ -4,6 +4,9 @@ run:
 sh:
     @uv run manage.py shell_plus
 
+worker:
+    @uv run manage.py db_worker
+
 manage *args:
     @uv run manage.py {{args}}
 

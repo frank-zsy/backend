@@ -75,9 +75,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # third party app
     "django_extensions",
+    "django_tasks",
+    "django_tasks.backends.database",
     "social_django",
     "anymail",
+    # app
     "homepage",
     "accounts",
 ]
@@ -233,3 +237,7 @@ ANYMAIL = {
 EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
 DEFAULT_FROM_EMAIL = "no-reply@openshare.cn"
 SERVER_EMAIL = "server@openshare.cn"
+
+
+# tasks
+TASKS = {"default": {"BACKEND": "django_tasks.backends.immediate.ImmediateBackend"}}

@@ -19,6 +19,7 @@ dependencies = [
     "pytest-cov>=5.0",
     "pytest-django>=4.9",
     "pytest-xdist>=3.6",
+    "django-tasks>=0.8.1",
 ]
 
 [tool.djlint]
