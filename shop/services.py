@@ -2,7 +2,6 @@
 
 from django.db import transaction
 from django.db.models import F
-from users.models import UserProfile
 
 from points.services import spend_points
 
@@ -14,7 +13,7 @@ class RedemptionError(Exception):
 
 
 @transaction.atomic
-def redeem_item(user_profile: UserProfile, item_id: int) -> Redemption:
+def redeem_item(user_profile, item_id: int) -> Redemption:
     """
     执行商品兑换的核心业务逻辑.
 
@@ -49,15 +48,18 @@ def redeem_item(user_profile: UserProfile, item_id: int) -> Redemption:
 
     # 2. 确定积分标签约束
     allowed_tags = list(item.allowed_tags.values_list("name", flat=True))
-    allowed_for_spending = allowed_tags if allowed_tags else None
 
     # 3. 调用积分服务进行扣除 (核心交互)
     # InsufficientPointsError 会在这里被抛出并传递到上层
+    # If there are allowed tags, use the first one as priority tag
+    # Note: Future enhancement could support multiple allowed tags
+    priority_tag = allowed_tags[0] if allowed_tags else None
+
     spend_transaction = spend_points(
         user_profile=user_profile,
         amount=item.cost,
         description=f"兑换商品: {item.name}",
-        allowed_tag_names=allowed_for_spending,
+        priority_tag_name=priority_tag,
     )
 
     # 4. 创建兑换记录

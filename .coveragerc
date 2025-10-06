@@ -3,7 +3,12 @@ source =
     accounts
     homepage
     config
+    points
+    shop
 omit =
+    manage.py
+    */migrations/*
+    */admin.py
     config/asgi.py
     config/wsgi.py
 parallel = True
@@ -11,4 +16,11 @@ concurrency = multiprocessing
 
 [report]
 show_missing = True
-fail_under = 95
+fail_under = 100
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:

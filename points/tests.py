@@ -179,6 +179,24 @@ class GrantPointsTests(TestCase):
                 tag_names=["tag1"],
             )
 
+    def test_grant_points_non_integer_amount(self):
+        """Test granting non-integer points raises ValueError."""
+        with pytest.raises(ValueError, match="发放的积分必须是正整数"):
+            grant_points(
+                user_profile=self.user,
+                points=10.5,
+                description="Float amount",
+                tag_names=["tag1"],
+            )
+
+        with pytest.raises(ValueError, match="发放的积分必须是正整数"):
+            grant_points(
+                user_profile=self.user,
+                points="100",
+                description="String amount",
+                tag_names=["tag1"],
+            )
+
     def test_grant_points_creates_tags(self):
         """Test granting points creates tags if they don't exist."""
         grant_points(
@@ -290,6 +308,14 @@ class SpendPointsTests(TestCase):
         with pytest.raises(ValueError, match="消费的积分必须是正整数"):
             spend_points(user_profile=self.user, amount=-10, description="Invalid")
 
+    def test_spend_points_non_integer_amount(self):
+        """Test spending non-integer points raises ValueError."""
+        with pytest.raises(ValueError, match="消费的积分必须是正整数"):
+            spend_points(user_profile=self.user, amount=10.5, description="Float")
+
+        with pytest.raises(ValueError, match="消费的积分必须是正整数"):
+            spend_points(user_profile=self.user, amount="50", description="String")
+
     def test_spend_points_with_priority_tag(self):
         """Test spending points with priority tag preference."""
         # Grant points with different tags
@@ -363,6 +389,60 @@ class SpendPointsTests(TestCase):
         assert sources[0].remaining_points == 0
         assert sources[1].remaining_points == 0
         assert sources[2].remaining_points == 30
+
+    def test_spend_points_fallback_to_any_remaining(self):
+        """Test that spend_points falls back to any remaining sources."""
+        # Create a default tag and a non-default tag
+        Tag.objects.create(name="default", is_default=True)
+        Tag.objects.create(name="other")
+
+        # Grant points with non-default tag
+        grant_points(
+            user_profile=self.user,
+            points=100,
+            description="Other points",
+            tag_names=["other"],
+        )
+
+        # Spend without specifying priority - should fall back to "any" sources
+        transaction = spend_points(
+            user_profile=self.user, amount=50, description="Fallback test"
+        )
+
+        assert transaction.points == -50
+        assert self.user.total_points == 50
+
+    def test_spend_points_with_priority_tag_fallback(self):
+        """Test spending with priority tag that doesn't have enough points."""
+        Tag.objects.create(name="default", is_default=True)
+        Tag.objects.create(name="priority")
+
+        # Grant small amount with priority tag
+        grant_points(
+            user_profile=self.user,
+            points=30,
+            description="Priority",
+            tag_names=["priority"],
+        )
+
+        # Grant more with default tag
+        grant_points(
+            user_profile=self.user,
+            points=100,
+            description="Default",
+            tag_names=["default"],
+        )
+
+        # Spend more than priority tag has - should use priority first, then default
+        transaction = spend_points(
+            user_profile=self.user,
+            amount=80,
+            description="Multi-source",
+            priority_tag_name="priority",
+        )
+
+        assert transaction.points == -80
+        assert self.user.total_points == 50  # 30 + 100 - 80 = 50
 
 
 class MyPointsViewTests(TestCase):

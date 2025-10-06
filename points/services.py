@@ -186,7 +186,7 @@ def spend_points(
         consumed_sources_list.extend(consumed)
 
     # 安全检查：理论上此时 amount_to_deduct 应该为 0
-    if amount_to_deduct > 0:
+    if amount_to_deduct > 0:  # pragma: no cover
         # 这个异常不应该被触发，如果触发了说明初始余额检查和扣除逻辑之间存在不一致，
         # 可能是由于非常高的并发导致，但 @transaction.atomic 已经提供了很强的保护。
         msg = "积分扣除逻辑异常：最终应扣除额度大于0。"
