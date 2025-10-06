@@ -36,8 +36,11 @@ class Tag(models.Model):
 class PointSource(models.Model):
     """积分来源模型, 记录用户获得的积分及其剩余量."""
 
-    user_profile = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="point_sources"
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="point_sources",
+        verbose_name="用户",
     )
     initial_points = models.PositiveIntegerField(verbose_name="初始积分")
     remaining_points = models.PositiveIntegerField(verbose_name="剩余积分")
@@ -71,10 +74,11 @@ class PointTransaction(models.Model):
         SPEND = "SPEND", "消费"
         # ... other types
 
-    user_profile = models.ForeignKey(
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="point_transactions",
+        verbose_name="用户",
     )
     points = models.IntegerField(verbose_name="变动积分")
     transaction_type = models.CharField(max_length=10, choices=TransactionType.choices)

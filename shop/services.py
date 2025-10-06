@@ -1,11 +1,15 @@
 """Service layer for shop application business logic."""
 
+import logging
+
 from django.db import transaction
 from django.db.models import F
 
 from points.services import spend_points
 
 from .models import Redemption, ShopItem
+
+logger = logging.getLogger(__name__)
 
 
 class RedemptionError(Exception):
@@ -41,9 +45,24 @@ def redeem_item(user_profile, item_id: int) -> Redemption:
     # 1. 前置条件检查
     if not item.is_active:
         msg = "该商品已下架。"
+        logger.warning(
+            "兑换失败（商品已下架）: 用户=%s (ID=%s), 商品=%s (ID=%s)",
+            user_profile.username,
+            user_profile.id,
+            item.name,
+            item.id,
+        )
         raise RedemptionError(msg)
     if item.stock is not None and item.stock <= 0:
         msg = "该商品已售罄。"
+        logger.warning(
+            "兑换失败（库存不足）: 用户=%s (ID=%s), 商品=%s (ID=%s), 当前库存=%s",
+            user_profile.username,
+            user_profile.id,
+            item.name,
+            item.id,
+            item.stock,
+        )
         raise RedemptionError(msg)
 
     # 2. 确定积分标签约束
@@ -75,5 +94,16 @@ def redeem_item(user_profile, item_id: int) -> Redemption:
     if item.stock is not None:
         item.stock = F("stock") - 1
         item.save(update_fields=["stock"])
+
+    logger.info(
+        "商品兑换成功: 用户=%s (ID=%s), 商品=%s (ID=%s), 消费积分=%s, 兑换记录ID=%s, 优先标签=%s",
+        user_profile.username,
+        user_profile.id,
+        item.name,
+        item.id,
+        item.cost,
+        redemption.id,
+        priority_tag or "无",
+    )
 
     return redemption

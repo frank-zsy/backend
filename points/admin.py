@@ -65,7 +65,7 @@ class PointSourceAdmin(admin.ModelAdmin):
 
     list_display = (
         "id",
-        "user_profile",
+        "user",
         "initial_points",
         "remaining_points",
         "usage_percentage",
@@ -75,7 +75,7 @@ class PointSourceAdmin(admin.ModelAdmin):
         "is_expired",
     )
     list_filter = ("created_at", "expires_at", "tags")
-    search_fields = ("user_profile__username", "user_profile__email", "notes")
+    search_fields = ("user__username", "user__email", "notes")
     filter_horizontal = ("tags",)
     readonly_fields = ("created_at",)
     ordering = ("-created_at",)
@@ -86,7 +86,7 @@ class PointSourceAdmin(admin.ModelAdmin):
             "基本信息",
             {
                 "fields": (
-                    "user_profile",
+                    "user",
                     "initial_points",
                     "remaining_points",
                 ),
@@ -139,7 +139,7 @@ class PointTransactionAdmin(admin.ModelAdmin):
 
     list_display = (
         "id",
-        "user_profile",
+        "user",
         "transaction_type",
         "colored_points",
         "description",
@@ -147,7 +147,7 @@ class PointTransactionAdmin(admin.ModelAdmin):
         "source_count",
     )
     list_filter = ("transaction_type", "created_at")
-    search_fields = ("user_profile__username", "user_profile__email", "description")
+    search_fields = ("user__username", "user__email", "description")
     readonly_fields = ("created_at",)
     ordering = ("-created_at",)
     date_hierarchy = "created_at"
@@ -158,7 +158,7 @@ class PointTransactionAdmin(admin.ModelAdmin):
             "交易信息",
             {
                 "fields": (
-                    "user_profile",
+                    "user",
                     "transaction_type",
                     "points",
                     "description",

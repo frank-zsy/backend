@@ -3,9 +3,13 @@
 import os
 import subprocess
 import sys
+from pathlib import Path
 from unittest import mock
 
 from django.test import SimpleTestCase
+
+# Get project root directory dynamically
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class ManagePyTests(SimpleTestCase):
@@ -142,7 +146,7 @@ except ImportError as e:
         result = subprocess.run(  # noqa: S603  # Safe: controlled inputs for testing
             [sys.executable, "manage.py", "--help"],
             check=False,
-            cwd="/Users/bestony/Developer/openshare/fullsite",
+            cwd=str(PROJECT_ROOT),
             capture_output=True,
             text=True,
             timeout=10,
@@ -156,7 +160,7 @@ except ImportError as e:
     def test_manage_import_error_exception_chain(self):
         """Test that ImportError in manage.py has proper exception chaining."""
         #  Verify the exception handling code exists in manage.py by inspecting source
-        with open("/Users/bestony/Developer/openshare/fullsite/manage.py") as f:
+        with open(PROJECT_ROOT / "manage.py") as f:
             source = f.read()
 
         # Verify the try-except block exists

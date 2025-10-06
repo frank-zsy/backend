@@ -1,8 +1,36 @@
 """User models for accounts app."""
 
-from django.contrib.auth.models import AbstractUser
+from functools import cached_property
+
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.db.models import Sum
+
+
+class UserQuerySet(models.QuerySet):
+    """Custom queryset for User model with point-related annotations."""
+
+    def annotate_with_points(self):
+        """
+        Annotate users with total points.
+
+        Use this for efficient bulk queries instead of accessing total_points property.
+        """
+        return self.annotate(
+            total_points_calculated=models.Sum("point_sources__remaining_points")
+        )
+
+
+class CustomUserManager(UserManager):
+    """Custom manager for User model."""
+
+    def get_queryset(self):
+        """Return custom queryset."""
+        return UserQuerySet(self.model, using=self._db)
+
+    def annotate_with_points(self):
+        """Proxy to queryset method."""
+        return self.get_queryset().annotate_with_points()
 
 
 class User(AbstractUser):
@@ -10,17 +38,29 @@ class User(AbstractUser):
 
     is_active = models.BooleanField(default=True)
 
+    objects = CustomUserManager()
+
     class Meta:
         """Meta configuration for User."""
 
         verbose_name = "用户"
         verbose_name_plural = verbose_name
 
-    @property
+    @cached_property
     def total_points(self):
-        """Get total points for the user."""
+        """
+        Get total points for the user (cached).
+
+        Cache is automatically cleared when PointSource or PointTransaction is modified.
+        For up-to-date values in queries, use User.objects.annotate_with_points() instead.
+        """
         total = self.point_sources.aggregate(total=Sum("remaining_points"))["total"]
         return total or 0
+
+    def clear_points_cache(self):
+        """Clear cached points value."""
+        if "total_points" in self.__dict__:
+            del self.__dict__["total_points"]
 
     def get_points_by_tag(self):
         """
