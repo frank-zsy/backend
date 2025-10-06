@@ -13,6 +13,8 @@ manage *args:
 fmt:
     @uvx ruff check   # Lint all files in the current directory.
     @uvx ruff format  # Format all files in the current directory.
+    @uv run -m pre_commit run  djlint-django --all-files
+
 
 db_update:
     @uv run manage.py makemigrations

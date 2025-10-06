@@ -57,76 +57,7 @@
                     {% endif %}
                 </a>
                 <div class="dropdown-menu p-0" aria-labelledby="profileDropdown">
-                    {% if user.is_authenticated %}
-                        <div class="d-flex flex-column align-items-center border-bottom px-5 py-3">
-                            <div class="mb-3">
-                                <img class="w-80px h-80px rounded-circle" src="https://ui-avatars.com/api/?name={{ user.username }}&size=80&background=random" alt="用户头像" width="80" height="80">
-                            </div>
-                            <div class="text-center">
-                                <p class="fs-16px fw-bolder">{{ user.username }}</p>
-                                <p class="fs-12px text-secondary">{{ user.email }}</p>
-                            </div>
-                        </div>
-                        <ul class="list-unstyled p-1">
-                            <li>
-                                <a href="{% url 'accounts:profile' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="user"></i>
-                                    <span>个人资料</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{% url 'accounts:profile_edit' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="edit"></i>
-                                    <span>编辑资料</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{% url 'points:my_points' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="award"></i>
-                                    <span>我的积分</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{% url 'accounts:shop_list' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="shopping-bag"></i>
-                                    <span>积分商城</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{% url 'accounts:redemption_list' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="package"></i>
-                                    <span>兑换记录</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{% url 'accounts:change_password' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="lock"></i>
-                                    <span>修改密码</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{% url 'accounts:logout' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="log-out"></i>
-                                    <span>退出登录</span>
-                                </a>
-                            </li>
-                        </ul>
-                    {% else %}
-                        <ul class="list-unstyled p-1">
-                            <li>
-                                <a href="{% url 'accounts:sign_in' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="log-in"></i>
-                                    <span>登录</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{% url 'accounts:sign_up' %}" class="dropdown-item py-2 text-body ms-0">
-                                    <i class="me-2 icon-md" data-lucide="user-plus"></i>
-                                    <span>注册</span>
-                                </a>
-                            </li>
-                        </ul>
-                    {% endif %}
+                    {% include "partials/_user_dropdown.html" %}
                 </div>
             </li>
         </ul>
