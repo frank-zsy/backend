@@ -14,6 +14,12 @@ class Tag(models.Model):
     description = models.TextField(blank=True, verbose_name="描述")
     is_default = models.BooleanField(default=False, verbose_name="是否为默认标签")
 
+    class Meta:
+        """模型元数据配置."""
+
+        verbose_name = "积分标签"
+        verbose_name_plural = verbose_name
+
     def __str__(self):
         """返回标签名称作为字符串表示."""
         return self.name
@@ -51,6 +57,8 @@ class PointSource(models.Model):
         """模型元数据配置."""
 
         ordering = ["created_at"]  # 优先消耗最早获得的积分 (FIFO)
+        verbose_name = "积分池"
+        verbose_name_plural = verbose_name
 
 
 class PointTransaction(models.Model):
@@ -80,3 +88,5 @@ class PointTransaction(models.Model):
         """模型元数据配置."""
 
         ordering = ["-created_at"]
+        verbose_name = "积分交易记录"
+        verbose_name_plural = verbose_name

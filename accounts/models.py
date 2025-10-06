@@ -10,6 +10,12 @@ class User(AbstractUser):
 
     is_active = models.BooleanField(default=True)
 
+    class Meta:
+        """Meta configuration for User."""
+
+        verbose_name = "用户"
+        verbose_name_plural = verbose_name
+
     @property
     def total_points(self):
         """Get total points for the user."""
@@ -60,6 +66,12 @@ class UserProfile(models.Model):
     )
     company = models.CharField(max_length=100, blank=True, verbose_name="公司")
     location = models.CharField(max_length=100, blank=True, verbose_name="位置")
+
+    class Meta:
+        """Meta configuration for UserProfile."""
+
+        verbose_name = "用户资料"
+        verbose_name_plural = verbose_name
 
     def __str__(self):
         """Return username as string representation."""
