@@ -2,6 +2,7 @@
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from points.models import Tag
@@ -74,6 +75,41 @@ class ShopItemModelTests(TestCase):
 
         assert item.created_at is not None
         assert item.updated_at is not None
+
+    def test_shop_item_with_image(self):
+        """Test creating shop item with image."""
+        image_file = SimpleUploadedFile(
+            "test_image.jpg", b"file_content", content_type="image/jpeg"
+        )
+        item = ShopItem.objects.create(
+            name="Item with Image",
+            description="Test",
+            cost=100,
+            image=image_file,
+        )
+
+        assert item.image is not None
+        assert "test_image" in item.image.name
+        assert item.image.name.startswith("shop/items/")
+
+    def test_shop_item_without_image(self):
+        """Test creating shop item without image (null/blank)."""
+        item = ShopItem.objects.create(
+            name="Item without Image", description="Test", cost=50
+        )
+
+        assert not item.image
+
+    def test_shop_item_image_upload_path(self):
+        """Test that image is uploaded to correct path."""
+        image_file = SimpleUploadedFile(
+            "product.png", b"image_data", content_type="image/png"
+        )
+        item = ShopItem.objects.create(
+            name="Path Test", description="Test", cost=75, image=image_file
+        )
+
+        assert item.image.name.startswith("shop/items/")
 
 
 class RedemptionModelTests(TestCase):

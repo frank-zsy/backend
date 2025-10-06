@@ -20,8 +20,14 @@ class ShopItem(models.Model):
         null=True, blank=True, verbose_name="库存", help_text="留空表示无限库存"
     )
     is_active = models.BooleanField(default=True, verbose_name="是否上架")
+    image = models.FileField(
+        upload_to="shop/items/",
+        null=True,
+        blank=True,
+        verbose_name="商品图片",
+        help_text="商品展示图片",
+    )
 
-    # --- 核心升级字段 ---
     allowed_tags = models.ManyToManyField(
         Tag,
         blank=True,
