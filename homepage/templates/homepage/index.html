@@ -26,12 +26,6 @@
             rel="stylesheet"
         />
 
-        <!-- Bootstrap Icons -->
-        <link
-            rel="stylesheet"
-            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
-        />
-
         <!-- NobleUI Core CSS -->
         <link
             rel="stylesheet"
@@ -626,17 +620,17 @@
                             </a>
                             <div class="dropdown-menu-custom">
                                 <a href="{% url 'accounts:profile' %}">
-                                    <i class="bi bi-person me-2"></i>个人资料
+                                    <i data-lucide="user" class="me-2"></i>个人资料
                                 </a>
                                 <a href="{% url 'accounts:shop_list' %}">
-                                    <i class="bi bi-shop me-2"></i>积分商城
+                                    <i data-lucide="shopping-bag" class="me-2"></i>积分商城
                                 </a>
                                 <a href="{% url 'accounts:redemption_list' %}">
-                                    <i class="bi bi-gift me-2"></i>我的兑换
+                                    <i data-lucide="gift" class="me-2"></i>我的兑换
                                 </a>
                                 <hr />
                                 <a href="{% url 'accounts:logout' %}">
-                                    <i class="bi bi-box-arrow-right me-2"></i
+                                    <i data-lucide="log-out" class="me-2"></i
                                     >退出登录
                                 </a>
                             </div>
@@ -677,7 +671,7 @@
                                 class="form-control search-input"
                                 placeholder="输入你的 GitHub / GitLab / Gitee 用户名或项目名"
                             />
-                            <i class="bi bi-search search-icon"></i>
+                            <i data-lucide="search" class="search-icon"></i>
                         </div>
                     </div>
                 </div>
@@ -732,7 +726,7 @@
                     <div class="col-lg-4 col-md-6">
                         <div class="feature-card">
                             <div class="feature-icon">
-                                <i class="bi bi-github"></i>
+                                <i data-lucide="github"></i>
                             </div>
                             <h3 class="feature-title">多平台支持</h3>
                             <p class="feature-text">
@@ -745,7 +739,7 @@
                     <div class="col-lg-4 col-md-6">
                         <div class="feature-card">
                             <div class="feature-icon">
-                                <i class="bi bi-graph-up-arrow"></i>
+                                <i data-lucide="trending-up"></i>
                             </div>
                             <h3 class="feature-title">自动追踪</h3>
                             <p class="feature-text">
@@ -758,7 +752,7 @@
                     <div class="col-lg-4 col-md-6">
                         <div class="feature-card">
                             <div class="feature-icon">
-                                <i class="bi bi-trophy"></i>
+                                <i data-lucide="trophy"></i>
                             </div>
                             <h3 class="feature-title">积分奖励</h3>
                             <p class="feature-text">
@@ -770,7 +764,7 @@
                     <div class="col-lg-4 col-md-6">
                         <div class="feature-card">
                             <div class="feature-icon">
-                                <i class="bi bi-people"></i>
+                                <i data-lucide="users"></i>
                             </div>
                             <h3 class="feature-title">社区互动</h3>
                             <p class="feature-text">
@@ -782,7 +776,7 @@
                     <div class="col-lg-4 col-md-6">
                         <div class="feature-card">
                             <div class="feature-icon">
-                                <i class="bi bi-shield-check"></i>
+                                <i data-lucide="shield-check"></i>
                             </div>
                             <h3 class="feature-title">透明公正</h3>
                             <p class="feature-text">
@@ -794,7 +788,7 @@
                     <div class="col-lg-4 col-md-6">
                         <div class="feature-card">
                             <div class="feature-icon">
-                                <i class="bi bi-gift"></i>
+                                <i data-lucide="gift"></i>
                             </div>
                             <h3 class="feature-title">丰富奖品</h3>
                             <p class="feature-text">
@@ -820,7 +814,7 @@
                     <div class="col-lg-6 mb-4 mb-lg-0">
                         <div class="benefit-item">
                             <div class="benefit-icon">
-                                <i class="bi bi-lightning-charge"></i>
+                                <i data-lucide="zap"></i>
                             </div>
                             <div class="benefit-content">
                                 <h4>即时反馈</h4>
@@ -832,7 +826,7 @@
 
                         <div class="benefit-item">
                             <div class="benefit-icon">
-                                <i class="bi bi-bar-chart"></i>
+                                <i data-lucide="bar-chart"></i>
                             </div>
                             <div class="benefit-content">
                                 <h4>数据可视化</h4>
@@ -844,7 +838,7 @@
 
                         <div class="benefit-item">
                             <div class="benefit-icon">
-                                <i class="bi bi-rocket"></i>
+                                <i data-lucide="rocket"></i>
                             </div>
                             <div class="benefit-content">
                                 <h4>职业发展</h4>
@@ -858,7 +852,7 @@
                     <div class="col-lg-6">
                         <div class="benefit-item">
                             <div class="benefit-icon">
-                                <i class="bi bi-star"></i>
+                                <i data-lucide="star"></i>
                             </div>
                             <div class="benefit-content">
                                 <h4>专属勋章</h4>
@@ -870,7 +864,7 @@
 
                         <div class="benefit-item">
                             <div class="benefit-icon">
-                                <i class="bi bi-wallet2"></i>
+                                <i data-lucide="wallet"></i>
                             </div>
                             <div class="benefit-content">
                                 <h4>实物奖励</h4>
@@ -882,7 +876,7 @@
 
                         <div class="benefit-item">
                             <div class="benefit-icon">
-                                <i class="bi bi-globe"></i>
+                                <i data-lucide="globe"></i>
                             </div>
                             <div class="benefit-content">
                                 <h4>全球认可</h4>
@@ -911,7 +905,7 @@
                         <div class="contributor-card">
                             <div class="contributor-rank">1</div>
                             <div class="contributor-avatar">
-                                <i class="bi bi-person"></i>
+                                <i data-lucide="user"></i>
                             </div>
                             <h4 class="contributor-name">张开发</h4>
                             <p class="mb-1 text-muted">@zhangdev</p>
@@ -924,7 +918,7 @@
                         <div class="contributor-card">
                             <div class="contributor-rank">2</div>
                             <div class="contributor-avatar">
-                                <i class="bi bi-person"></i>
+                                <i data-lucide="user"></i>
                             </div>
                             <h4 class="contributor-name">李程序</h4>
                             <p class="mb-1 text-muted">@licoder</p>
@@ -937,7 +931,7 @@
                         <div class="contributor-card">
                             <div class="contributor-rank">3</div>
                             <div class="contributor-avatar">
-                                <i class="bi bi-person"></i>
+                                <i data-lucide="user"></i>
                             </div>
                             <h4 class="contributor-name">王工程</h4>
                             <p class="mb-1 text-muted">@wangeng</p>
@@ -950,7 +944,7 @@
                         <div class="contributor-card">
                             <div class="contributor-rank">4</div>
                             <div class="contributor-avatar">
-                                <i class="bi bi-person"></i>
+                                <i data-lucide="user"></i>
                             </div>
                             <h4 class="contributor-name">陈代码</h4>
                             <p class="mb-1 text-muted">@chencode</p>
@@ -1041,32 +1035,32 @@
                 <div class="row g-4">
                     <div class="col-lg-2 col-md-3 col-4">
                         <div class="logo-item">
-                            <i class="bi bi-github"></i>
+                            <i data-lucide="github"></i>
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-3 col-4">
                         <div class="logo-item">
-                            <i class="bi bi-gitlab"></i>
+                            <i data-lucide="gitlab"></i>
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-3 col-4">
                         <div class="logo-item">
-                            <i class="bi bi-git"></i>
+                            <i data-lucide="git-branch"></i>
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-3 col-4">
                         <div class="logo-item">
-                            <i class="bi bi-code-square"></i>
+                            <i data-lucide="code"></i>
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-3 col-4">
                         <div class="logo-item">
-                            <i class="bi bi-terminal"></i>
+                            <i data-lucide="terminal"></i>
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-3 col-4">
                         <div class="logo-item">
-                            <i class="bi bi-braces"></i>
+                            <i data-lucide="braces"></i>
                         </div>
                     </div>
                 </div>
@@ -1134,9 +1128,9 @@
                     <div class="col-lg-2 col-md-3 col-6">
                         <h5 class="mb-3">社交</h5>
                         <div class="d-flex gap-3">
-                            <a href="#"><i class="bi bi-github fs-4"></i></a>
-                            <a href="#"><i class="bi bi-twitter fs-4"></i></a>
-                            <a href="#"><i class="bi bi-linkedin fs-4"></i></a>
+                            <a href="#"><i data-lucide="github" class="fs-4"></i></a>
+                            <a href="#"><i data-lucide="twitter" class="fs-4"></i></a>
+                            <a href="#"><i data-lucide="linkedin" class="fs-4"></i></a>
                         </div>
                     </div>
                 </div>
@@ -1151,5 +1145,11 @@
         <script src="{% static 'nobleui/vendors/core/core.js' %}"></script>
         <script src="{% static 'nobleui/vendors/lucide/lucide.min.js' %}"></script>
         <script src="{% static 'nobleui/js/template.js' %}"></script>
+        <script>
+            // Initialize Lucide Icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        </script>
     </body>
 </html>
