@@ -666,12 +666,27 @@
                         </p>
 
                         <div class="search-box">
-                            <input
-                                type="text"
-                                class="form-control search-input"
-                                placeholder="输入你的 GitHub / GitLab / Gitee 用户名或项目名"
-                            />
-                            <i data-lucide="search" class="search-icon"></i>
+                            <form
+                                action="{% url 'homepage:search' %}"
+                                method="get"
+                                class="position-relative"
+                            >
+                                <input
+                                    type="text"
+                                    class="form-control search-input"
+                                    name="q"
+                                    placeholder="输入你的 GitHub / GitLab / Gitee 用户名或项目名"
+                                    aria-label="搜索开源贡献者"
+                                    required
+                                />
+                                <button
+                                    type="submit"
+                                    class="btn btn-link p-0 border-0 search-icon"
+                                    aria-label="执行搜索"
+                                >
+                                    <i data-lucide="search"></i>
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
