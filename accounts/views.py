@@ -494,3 +494,29 @@ def redeem_confirm_view(request, item_id):
             "points_needed": points_needed,
         },
     )
+
+
+def public_profile_view(request, username):
+    """Display public profile page for any user."""
+    User = get_user_model()
+    user = get_object_or_404(User, username=username)
+    profile, _created = UserProfile.objects.get_or_create(user=user)
+
+    # Get work experiences and educations
+    work_experiences = profile.work_experiences.all()
+    educations = profile.educations.all()
+
+    # Get user's total points (public information)
+    total_points = user.total_points
+
+    return render(
+        request,
+        "public_profile.html",
+        {
+            "profile_user": user,
+            "profile": profile,
+            "work_experiences": work_experiences,
+            "educations": educations,
+            "total_points": total_points,
+        },
+    )

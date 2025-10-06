@@ -20,6 +20,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from accounts.views import public_profile_view
+
 # Import admin customization to apply settings
 from config import admin as _admin_config  # noqa: F401
 
@@ -29,4 +31,6 @@ urlpatterns = [
     path("accounts/", include("accounts.urls")),
     path("accounts/", include("points.urls")),
     path("", include("homepage.urls")),
+    # Public profile route - must be last to avoid conflicts
+    path("<str:username>/", public_profile_view, name="public_profile"),
 ]

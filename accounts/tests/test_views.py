@@ -1793,3 +1793,212 @@ class RedeemConfirmViewTests(TestCase):
         response = self.client.get(reverse("accounts:redeem_confirm", args=[99999]))
 
         assert response.status_code == 404
+
+
+class PublicProfileViewTests(TestCase):
+    """Test cases for public profile view."""
+
+    def setUp(self):
+        """Set up test user with profile."""
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
+        )
+        self.profile = UserProfile.objects.create(
+            user=self.user,
+            bio="Test bio for public profile",
+            company="Test Company",
+            location="Test City",
+            github_url="https://github.com/testuser",
+            blog_url="https://blog.testuser.com",
+        )
+
+    def test_public_profile_view_accessible_by_anyone(self):
+        """Test that public profile is accessible without login."""
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+
+    def test_public_profile_view_accessible_by_logged_in_user(self):
+        """Test that public profile is accessible by logged in users."""
+        other_user = get_user_model().objects.create_user(
+            username="otheruser",
+            email="other@example.com",
+            password="otherpass123",
+        )
+        self.client.force_login(other_user)
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+
+    def test_public_profile_view_uses_correct_template(self):
+        """Test that public profile view uses correct template."""
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        self.assertTemplateUsed(response, "public_profile.html")
+
+    def test_public_profile_view_contains_user_info(self):
+        """Test that public profile displays user information."""
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+        self.assertContains(response, "testuser")
+        self.assertContains(response, "Test bio for public profile")
+        self.assertContains(response, "Test Company")
+        self.assertContains(response, "Test City")
+
+    def test_public_profile_view_contains_social_links(self):
+        """Test that public profile displays social links."""
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+        self.assertContains(response, "https://github.com/testuser")
+        self.assertContains(response, "https://blog.testuser.com")
+
+    def test_public_profile_view_displays_total_points(self):
+        """Test that public profile displays total points."""
+        from points.models import PointSource, Tag
+
+        tag = Tag.objects.create(name="test-tag")
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            notes="Test points",
+        )
+        source.tags.add(tag)
+
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+        self.assertContains(response, "100")
+
+    def test_public_profile_view_displays_work_experience(self):
+        """Test that public profile displays work experience."""
+        WorkExperience.objects.create(
+            profile=self.profile,
+            company_name="Test Corp",
+            title="Software Engineer",
+            start_date=date(2020, 1, 1),
+            end_date=date(2022, 12, 31),
+            description="Worked on test projects",
+        )
+
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+        self.assertContains(response, "Test Corp")
+        self.assertContains(response, "Software Engineer")
+        self.assertContains(response, "Worked on test projects")
+
+    def test_public_profile_view_displays_education(self):
+        """Test that public profile displays education."""
+        Education.objects.create(
+            profile=self.profile,
+            institution_name="Test University",
+            degree="Bachelor",
+            field_of_study="Computer Science",
+            start_date=date(2016, 9, 1),
+            end_date=date(2020, 6, 30),
+        )
+
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+        self.assertContains(response, "Test University")
+        self.assertContains(response, "Computer Science")
+        self.assertContains(response, "Bachelor")
+
+    def test_public_profile_view_handles_current_work(self):
+        """Test that public profile handles work experience without end date."""
+        WorkExperience.objects.create(
+            profile=self.profile,
+            company_name="Current Corp",
+            title="Senior Engineer",
+            start_date=date(2023, 1, 1),
+            end_date=None,
+            description="Current position",
+        )
+
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+        self.assertContains(response, "Current Corp")
+        self.assertContains(response, "至今")
+
+    def test_public_profile_view_handles_current_education(self):
+        """Test that public profile handles education without end date."""
+        Education.objects.create(
+            profile=self.profile,
+            institution_name="Current University",
+            degree="PhD",
+            field_of_study="Machine Learning",
+            start_date=date(2022, 9, 1),
+            end_date=None,
+        )
+
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+        self.assertContains(response, "Current University")
+        self.assertContains(response, "至今")
+
+    def test_public_profile_view_creates_profile_if_not_exists(self):
+        """Test that view creates profile if it doesn't exist."""
+        user_without_profile = get_user_model().objects.create_user(
+            username="noprofile",
+            email="noprofile@example.com",
+            password="testpass123",
+        )
+
+        response = self.client.get(reverse("public_profile", args=["noprofile"]))
+        assert response.status_code == 200
+
+        # Verify profile was created
+        profile = UserProfile.objects.get(user=user_without_profile)
+        assert profile is not None
+
+    def test_public_profile_view_404_for_nonexistent_user(self):
+        """Test 404 response for nonexistent username."""
+        response = self.client.get(reverse("public_profile", args=["nonexistentuser"]))
+        assert response.status_code == 404
+
+    def test_public_profile_view_context_data(self):
+        """Test that view provides correct context data."""
+        response = self.client.get(reverse("public_profile", args=["testuser"]))
+        assert response.status_code == 200
+
+        assert "profile_user" in response.context
+        assert "profile" in response.context
+        assert "work_experiences" in response.context
+        assert "educations" in response.context
+        assert "total_points" in response.context
+
+        assert response.context["profile_user"] == self.user
+        assert response.context["profile"] == self.profile
+        assert response.context["total_points"] == 0
+
+    def test_public_profile_view_without_bio(self):
+        """Test public profile displays correctly without bio."""
+        user_no_bio = get_user_model().objects.create_user(
+            username="nobio",
+            email="nobio@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(user=user_no_bio, bio="")
+
+        response = self.client.get(reverse("public_profile", args=["nobio"]))
+        assert response.status_code == 200
+        self.assertContains(response, "开源贡献者")
+
+    def test_public_profile_view_without_social_links(self):
+        """Test public profile handles absence of social links."""
+        user_no_social = get_user_model().objects.create_user(
+            username="nosocial",
+            email="nosocial@example.com",
+            password="testpass123",
+        )
+        UserProfile.objects.create(
+            user=user_no_social,
+            github_url="",
+            blog_url="",
+            homepage_url="",
+            twitter_url="",
+            linkedin_url="",
+        )
+
+        response = self.client.get(reverse("public_profile", args=["nosocial"]))
+        assert response.status_code == 200
+        # Should not show social links section if no links are present
