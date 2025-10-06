@@ -1,0 +1,134 @@
+{% extends "horizontal_base.html" %}
+
+{% block title %}确认兑换{% endblock title %}
+
+{% block content %}
+    <style>
+        .confirm-item-image {
+            max-width: 300px;
+            max-height: 300px;
+            object-fit: cover;
+        }
+        .confirm-item-placeholder {
+            width: 200px;
+            height: 200px;
+        }
+        .confirm-icon-small {
+            width: 20px;
+            height: 20px;
+        }
+        .confirm-icon-large {
+            width: 80px;
+            height: 80px;
+        }
+    </style>
+    <div class="d-flex justify-content-between align-items-center flex-wrap grid-margin">
+        <div>
+            <h4 class="mb-3 mb-md-0">确认兑换</h4>
+        </div>
+        <div class="d-flex align-items-center flex-wrap text-nowrap">
+            <a href="{% url 'accounts:shop_list' %}" class="btn btn-outline-secondary btn-icon-text">
+                <i data-lucide="arrow-left" class="btn-icon-prepend"></i> 返回商城
+            </a>
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        {% if item.image %}
+                            <img src="{{ item.image.url }}"
+                                 alt="{{ item.name }}"
+                                 class="rounded mb-3 confirm-item-image"
+                                 width="300"
+                                 height="300">
+                        {% else %}
+                            <div class="bg-light rounded mb-3 d-inline-flex align-items-center justify-content-center confirm-item-placeholder">
+                                <i data-lucide="package" class="text-muted confirm-icon-large"></i>
+                            </div>
+                        {% endif %}
+                        <h3 class="mb-2">{{ item.name }}</h3>
+                        <p class="text-muted">{{ item.description }}</p>
+                    </div>
+                    <hr>
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">所需积分：</span>
+                            <span class="badge bg-warning text-dark fs-6">{{ item.cost }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">我的积分：</span>
+                            <span class="badge bg-primary fs-6">{{ user_points }}</span>
+                        </div>
+                        {% if item.stock is not None %}
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">剩余库存：</span>
+                                <span class="badge {% if item.stock > 0 %}bg-success{% else %}bg-danger{% endif %} fs-6">{{ item.stock }}</span>
+                            </div>
+                        {% endif %}
+                        {% if item.allowed_tags.all %}
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">标签限制：</span>
+                                <div>
+                                    {% for tag in item.allowed_tags.all %}
+                                        <span class="badge bg-info">{{ tag.name }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        <hr>
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold">兑换后剩余：</span>
+                            <span class="badge {% if can_afford %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                                {% if can_afford %}
+                                    {{ remaining_after_redeem }}
+                                {% else %}
+                                    积分不足
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% if can_afford %}
+                        {% if item.stock is None or item.stock > 0 %}
+                            <form method="post" class="d-grid">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i data-lucide="check-circle" class="btn-icon-prepend"></i> 确认兑换
+                                </button>
+                            </form>
+                            <div class="alert alert-info mt-3 d-flex align-items-center" role="alert">
+                                <i data-lucide="info" class="me-2 confirm-icon-small"></i>
+                                <div>
+                                    <small>确认后将立即扣除积分，请谨慎操作</small>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-danger d-flex align-items-center" role="alert">
+                                <i data-lucide="alert-circle" class="me-2 confirm-icon-small"></i>
+                                <div>该商品已售罄，无法兑换</div>
+                            </div>
+                            <a href="{% url 'accounts:shop_list' %}" class="btn btn-secondary w-100">返回商城</a>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-warning d-flex align-items-center" role="alert">
+                            <i data-lucide="alert-triangle" class="me-2 confirm-icon-small"></i>
+                            <div>
+                                <strong>积分不足！</strong>
+                                <p class="mb-0 mt-1">
+                                    <small>您还需要 <strong>{{ points_needed }}</strong> 积分才能兑换此商品</small>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'points:my_points' %}" class="btn btn-primary">
+                                <i data-lucide="award" class="btn-icon-prepend"></i> 查看如何获取积分
+                            </a>
+                            <a href="{% url 'accounts:shop_list' %}" class="btn btn-outline-secondary">返回商城</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

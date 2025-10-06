@@ -4,11 +4,16 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
+from django.db.models import Sum
 from django.forms import inlineformset_factory
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from social_django.models import UserSocialAuth
+
+from points.services import InsufficientPointsError
+from shop.models import Redemption, ShopItem
+from shop.services import RedemptionError, redeem_item
 
 from .forms import (
     ChangeEmailForm,
@@ -407,3 +412,85 @@ def password_reset_confirm_view(request, uidb64, token):
             "password_reset_confirm.html",
             {"validlink": False},
         )
+
+
+@login_required
+def shop_list_view(request):
+    """Display list of available shop items for redemption."""
+    # Get all active items
+    items = ShopItem.objects.filter(is_active=True).prefetch_related("allowed_tags")
+
+    # Get user's total available points
+    user_points = (
+        request.user.point_sources.aggregate(total=Sum("remaining_points"))["total"]
+        or 0
+    )
+
+    return render(
+        request,
+        "shop_list.html",
+        {
+            "items": items,
+            "user_points": user_points,
+        },
+    )
+
+
+@login_required
+def redemption_list_view(request):
+    """Display user's redemption history."""
+    redemptions = Redemption.objects.filter(user_profile=request.user).select_related(
+        "item", "transaction"
+    )
+
+    return render(
+        request,
+        "redemption_list.html",
+        {
+            "redemptions": redemptions,
+        },
+    )
+
+
+@login_required
+def redeem_confirm_view(request, item_id):
+    """Handle item redemption confirmation and processing."""
+    item = get_object_or_404(ShopItem, id=item_id)
+
+    # Only process POST requests for redemption
+    if request.method == "POST":
+        try:
+            redemption = redeem_item(user_profile=request.user, item_id=item_id)
+            messages.success(
+                request,
+                f"成功兑换 {item.name}！消耗积分：{redemption.points_cost_at_redemption}",
+            )
+            return redirect("accounts:redemption_list")
+        except RedemptionError as e:
+            messages.error(request, f"兑换失败：{e}")
+            return redirect("accounts:shop_list")
+        except InsufficientPointsError as e:
+            messages.error(request, f"积分不足：{e}")
+            return redirect("accounts:shop_list")
+
+    # GET request - show confirmation page
+    user_points = (
+        request.user.point_sources.aggregate(total=Sum("remaining_points"))["total"]
+        or 0
+    )
+
+    can_afford = user_points >= item.cost
+    remaining_after_redeem = user_points - item.cost if can_afford else 0
+    points_needed = item.cost - user_points if not can_afford else 0
+
+    return render(
+        request,
+        "redeem_confirm.html",
+        {
+            "item": item,
+            "user_points": user_points,
+            "can_afford": can_afford,
+            "remaining_after_redeem": remaining_after_redeem,
+            "points_needed": points_needed,
+        },
+    )

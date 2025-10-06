@@ -2416,3 +2416,296 @@ class PasswordResetTaskTests(TestCase):
 
         email = mail.outbox[0]
         assert "/accounts/password-reset-confirm/" in email.body
+
+
+class ShopListViewTests(TestCase):
+    """Test cases for shop list view."""
+
+    def setUp(self):
+        """Set up test data."""
+        from points.models import PointSource, Tag
+        from shop.models import ShopItem
+
+        self.user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password123",
+        )
+
+        # Create some points for the user
+        tag = Tag.objects.create(name="test-tag")
+        source = PointSource.objects.create(
+            user_profile=self.user, initial_points=100, remaining_points=100
+        )
+        source.tags.add(tag)
+
+        # Create shop items
+        self.item1 = ShopItem.objects.create(
+            name="Item 1", description="Description 1", cost=50, is_active=True
+        )
+        self.item2 = ShopItem.objects.create(
+            name="Item 2",
+            description="Description 2",
+            cost=150,
+            is_active=True,
+            stock=10,
+        )
+        self.item3 = ShopItem.objects.create(
+            name="Item 3", description="Description 3", cost=30, is_active=False
+        )
+
+    def test_shop_list_login_required(self):
+        """Test that shop list requires login."""
+        response = self.client.get(reverse("accounts:shop_list"))
+        assert response.status_code == 302
+
+    def test_shop_list_view_shows_active_items(self):
+        """Test that shop list shows only active items."""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.get(reverse("accounts:shop_list"))
+
+        assert response.status_code == 200
+        assert self.item1 in response.context["items"]
+        assert self.item2 in response.context["items"]
+        assert self.item3 not in response.context["items"]
+
+    def test_shop_list_view_shows_user_points(self):
+        """Test that shop list displays user's points."""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.get(reverse("accounts:shop_list"))
+
+        assert response.status_code == 200
+        assert response.context["user_points"] == 100
+
+    def test_shop_list_view_with_no_points(self):
+        """Test shop list view when user has no points."""
+        _user2 = get_user_model().objects.create_user(
+            username="user2", email="user2@example.com", password="password123"
+        )
+        self.client.login(username="user2", password="password123")
+        response = self.client.get(reverse("accounts:shop_list"))
+
+        assert response.status_code == 200
+        assert response.context["user_points"] == 0
+
+
+class RedemptionListViewTests(TestCase):
+    """Test cases for redemption list view."""
+
+    def setUp(self):
+        """Set up test data."""
+        from points.models import PointSource, PointTransaction, Tag
+        from shop.models import Redemption, ShopItem
+
+        self.user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password123",
+        )
+
+        # Create shop item and redemption
+        self.item = ShopItem.objects.create(
+            name="Test Item", description="Description", cost=50, is_active=True
+        )
+
+        tag = Tag.objects.create(name="test-tag")
+        source = PointSource.objects.create(
+            user_profile=self.user, initial_points=100, remaining_points=50
+        )
+        source.tags.add(tag)
+
+        transaction = PointTransaction.objects.create(
+            user_profile=self.user,
+            points=-50,
+            transaction_type=PointTransaction.TransactionType.SPEND,
+            description="Test redemption",
+        )
+
+        self.redemption = Redemption.objects.create(
+            user_profile=self.user,
+            item=self.item,
+            points_cost_at_redemption=50,
+            transaction=transaction,
+            status=Redemption.StatusChoices.COMPLETED,
+        )
+
+    def test_redemption_list_login_required(self):
+        """Test that redemption list requires login."""
+        response = self.client.get(reverse("accounts:redemption_list"))
+        assert response.status_code == 302
+
+    def test_redemption_list_shows_user_redemptions(self):
+        """Test that redemption list shows user's redemptions."""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.get(reverse("accounts:redemption_list"))
+
+        assert response.status_code == 200
+        assert self.redemption in response.context["redemptions"]
+
+    def test_redemption_list_empty_for_new_user(self):
+        """Test redemption list is empty for user with no redemptions."""
+        _user2 = get_user_model().objects.create_user(
+            username="user2", email="user2@example.com", password="password123"
+        )
+        self.client.login(username="user2", password="password123")
+        response = self.client.get(reverse("accounts:redemption_list"))
+
+        assert response.status_code == 200
+        assert len(response.context["redemptions"]) == 0
+
+
+class RedeemConfirmViewTests(TestCase):
+    """Test cases for redeem confirm view."""
+
+    def setUp(self):
+        """Set up test data."""
+        from points.models import PointSource, Tag
+        from shop.models import ShopItem
+
+        self.user = get_user_model().objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password123",
+        )
+
+        # Create points for user
+        tag = Tag.objects.create(name="test-tag")
+        source = PointSource.objects.create(
+            user_profile=self.user, initial_points=100, remaining_points=100
+        )
+        source.tags.add(tag)
+
+        # Create shop item
+        self.item = ShopItem.objects.create(
+            name="Test Item", description="Description", cost=50, is_active=True
+        )
+
+    def test_redeem_confirm_login_required(self):
+        """Test that redeem confirm requires login."""
+        response = self.client.get(
+            reverse("accounts:redeem_confirm", args=[self.item.id])
+        )
+        assert response.status_code == 302
+
+    def test_redeem_confirm_get_shows_item_details(self):
+        """Test GET request shows item details."""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.get(
+            reverse("accounts:redeem_confirm", args=[self.item.id])
+        )
+
+        assert response.status_code == 200
+        assert response.context["item"] == self.item
+        assert response.context["user_points"] == 100
+        assert response.context["can_afford"] is True
+        assert response.context["remaining_after_redeem"] == 50
+        assert response.context["points_needed"] == 0
+
+    def test_redeem_confirm_cannot_afford(self):
+        """Test redeem confirm when user cannot afford item."""
+        from shop.models import ShopItem
+
+        expensive_item = ShopItem.objects.create(
+            name="Expensive Item", description="Description", cost=200, is_active=True
+        )
+
+        self.client.login(username="testuser", password="password123")
+        response = self.client.get(
+            reverse("accounts:redeem_confirm", args=[expensive_item.id])
+        )
+
+        assert response.status_code == 200
+        assert response.context["can_afford"] is False
+        assert response.context["remaining_after_redeem"] == 0
+        assert response.context["points_needed"] == 100
+
+    def test_redeem_confirm_post_successful_redemption(self):
+        """Test POST request successfully redeems item."""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.post(
+            reverse("accounts:redeem_confirm", args=[self.item.id])
+        )
+
+        assert response.status_code == 302
+        assert response.url == reverse("accounts:redemption_list")
+
+        # Verify redemption was created
+        from shop.models import Redemption
+
+        redemptions = Redemption.objects.filter(user_profile=self.user)
+        assert redemptions.count() == 1
+        assert redemptions.first().item == self.item
+
+    def test_redeem_confirm_post_insufficient_points(self):
+        """Test POST request fails when user has insufficient points."""
+        from shop.models import ShopItem
+
+        expensive_item = ShopItem.objects.create(
+            name="Expensive Item", description="Description", cost=200, is_active=True
+        )
+
+        self.client.login(username="testuser", password="password123")
+        response = self.client.post(
+            reverse("accounts:redeem_confirm", args=[expensive_item.id])
+        )
+
+        assert response.status_code == 302
+        assert response.url == reverse("accounts:shop_list")
+
+        # Verify no redemption was created
+        from shop.models import Redemption
+
+        assert Redemption.objects.filter(user_profile=self.user).count() == 0
+
+    def test_redeem_confirm_post_out_of_stock(self):
+        """Test POST request fails when item is out of stock."""
+        from shop.models import ShopItem
+
+        out_of_stock_item = ShopItem.objects.create(
+            name="Out of Stock Item",
+            description="Description",
+            cost=50,
+            is_active=True,
+            stock=0,
+        )
+
+        self.client.login(username="testuser", password="password123")
+        response = self.client.post(
+            reverse("accounts:redeem_confirm", args=[out_of_stock_item.id])
+        )
+
+        assert response.status_code == 302
+        assert response.url == reverse("accounts:shop_list")
+
+        # Verify no redemption was created
+        from shop.models import Redemption
+
+        assert Redemption.objects.filter(user_profile=self.user).count() == 0
+
+    def test_redeem_confirm_post_inactive_item(self):
+        """Test POST request fails when item is not active."""
+        from shop.models import ShopItem
+
+        inactive_item = ShopItem.objects.create(
+            name="Inactive Item", description="Description", cost=50, is_active=False
+        )
+
+        self.client.login(username="testuser", password="password123")
+        response = self.client.post(
+            reverse("accounts:redeem_confirm", args=[inactive_item.id])
+        )
+
+        assert response.status_code == 302
+        assert response.url == reverse("accounts:shop_list")
+
+        # Verify no redemption was created
+        from shop.models import Redemption
+
+        assert Redemption.objects.filter(user_profile=self.user).count() == 0
+
+    def test_redeem_confirm_404_for_nonexistent_item(self):
+        """Test 404 response for nonexistent item."""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.get(reverse("accounts:redeem_confirm", args=[99999]))
+
+        assert response.status_code == 404

@@ -13,6 +13,9 @@ from .views import (
     password_reset_request_view,
     profile_edit_view,
     profile_view,
+    redeem_confirm_view,
+    redemption_list_view,
+    shop_list_view,
     sign_in_view,
     sign_up_view,
     social_connections_view,
@@ -50,4 +53,8 @@ urlpatterns = [
         password_reset_confirm_view,
         name="password_reset_confirm",
     ),
+    # Shop and redemption URLs
+    path("shop/", shop_list_view, name="shop_list"),
+    path("redemption/", redemption_list_view, name="redemption_list"),
+    path("redeem/<int:item_id>/", redeem_confirm_view, name="redeem_confirm"),
 ]

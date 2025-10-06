@@ -1,0 +1,119 @@
+{% extends "horizontal_base.html" %}
+
+{% block title %}我的兑换记录{% endblock title %}
+
+{% block content %}
+    <style>
+        .redemption-item-thumbnail {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+        }
+        .redemption-item-placeholder {
+            width: 40px;
+            height: 40px;
+        }
+        .redemption-icon-small {
+            width: 14px;
+            height: 14px;
+        }
+        .redemption-icon-medium {
+            width: 20px;
+            height: 20px;
+        }
+        .redemption-icon-large {
+            width: 64px;
+            height: 64px;
+        }
+    </style>
+    <div class="d-flex justify-content-between align-items-center flex-wrap grid-margin">
+        <div>
+            <h4 class="mb-3 mb-md-0">我的兑换记录</h4>
+        </div>
+        <div class="d-flex align-items-center flex-wrap text-nowrap">
+            <a href="{% url 'accounts:shop_list' %}" class="btn btn-primary btn-icon-text">
+                <i data-lucide="shopping-bag" class="btn-icon-prepend"></i> 返回商城
+            </a>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12 grid-margin stretch-card">
+            <div class="card">
+                <div class="card-body">
+                    {% if redemptions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>商品名称</th>
+                                        <th>消耗积分</th>
+                                        <th>状态</th>
+                                        <th>兑换时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for redemption in redemptions %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    {% if redemption.item.image %}
+                                                        <img src="{{ redemption.item.image.url }}"
+                                                             alt="{{ redemption.item.name }}"
+                                                             class="rounded me-2 redemption-item-thumbnail"
+                                                             width="40"
+                                                             height="40">
+                                                    {% else %}
+                                                        <div class="bg-light rounded me-2 d-flex align-items-center justify-content-center redemption-item-placeholder">
+                                                            <i data-lucide="package" class="text-muted redemption-icon-medium"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                    <span class="fw-bold">{{ redemption.item.name }}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-warning text-dark">{{ redemption.points_cost_at_redemption }}</span>
+                                            </td>
+                                            <td>
+                                                {% if redemption.status == "COMPLETED" %}
+                                                    <span class="badge bg-success">
+                                                        <i data-lucide="check-circle" class="redemption-icon-small"></i> 已完成
+                                                    </span>
+                                                {% elif redemption.status == "PENDING" %}
+                                                    <span class="badge bg-warning">
+                                                        <i data-lucide="clock" class="redemption-icon-small"></i> 处理中
+                                                    </span>
+                                                {% elif redemption.status == "CANCELLED" %}
+                                                    <span class="badge bg-danger">
+                                                        <i data-lucide="x-circle" class="redemption-icon-small"></i> 已取消
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ redemption.created_at|date:"Y-m-d H:i:s" }}</td>
+                                            <td>
+                                                {% if redemption.transaction %}
+                                                    <a href="{% url 'points:my_points' %}" class="btn btn-sm btn-outline-primary" title="查看积分记录">
+                                                        <i data-lucide="eye" class="redemption-icon-small"></i>
+                                                    </a>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i data-lucide="inbox" class="text-muted mb-3 redemption-icon-large"></i>
+                            <h5 class="text-muted">暂无兑换记录</h5>
+                            <p class="text-muted mb-3">您还没有进行过任何兑换</p>
+                            <a href="{% url 'accounts:shop_list' %}" class="btn btn-primary btn-icon-text">
+                                <i data-lucide="shopping-bag" class="btn-icon-prepend"></i> 前往商城
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
