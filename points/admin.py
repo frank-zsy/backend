@@ -89,16 +89,20 @@ class PointSourceAdmin(admin.ModelAdmin):
                     "user_profile",
                     "initial_points",
                     "remaining_points",
-                )
+                ),
             },
         ),
         (
             "标签和备注",
-            {"fields": ("tags", "notes")},
+            {
+                "fields": ("tags", "notes"),
+            },
         ),
         (
             "时间信息",
-            {"fields": ("created_at", "expires_at")},
+            {
+                "fields": ("created_at", "expires_at"),
+            },
         ),
     )
 
@@ -158,16 +162,20 @@ class PointTransactionAdmin(admin.ModelAdmin):
                     "transaction_type",
                     "points",
                     "description",
-                )
+                ),
             },
         ),
         (
             "关联信息",
-            {"fields": ("consumed_sources",)},
+            {
+                "fields": ("consumed_sources",),
+            },
         ),
         (
             "时间信息",
-            {"fields": ("created_at",)},
+            {
+                "fields": ("created_at",),
+            },
         ),
     )
 

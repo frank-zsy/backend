@@ -16,6 +16,7 @@ class ShopItemAdmin(admin.ModelAdmin):
         "cost",
         "stock_display",
         "is_active",
+        "has_image",
         "display_tags",
         "redemption_count",
         "created_at",
@@ -32,7 +33,7 @@ class ShopItemAdmin(admin.ModelAdmin):
         (
             "基本信息",
             {
-                "fields": ("name", "description", "cost"),
+                "fields": ("name", "description", "cost", "image"),
             },
         ),
         (
@@ -46,6 +47,12 @@ class ShopItemAdmin(admin.ModelAdmin):
             {
                 "fields": ("allowed_tags",),
                 "description": "如果为空，则任何积分都可兑换。如果不为空，则只有带这些标签的积分才能用于兑换。",
+            },
+        ),
+        (
+            "统计信息",
+            {
+                "fields": ("redemption_count",),
             },
         ),
         (
@@ -68,6 +75,11 @@ class ShopItemAdmin(admin.ModelAdmin):
         if obj.stock < 10:
             return format_html('<span style="color: orange;">{}</span>', obj.stock)
         return obj.stock
+
+    @admin.display(boolean=True, description="有图片")
+    def has_image(self, obj):
+        """Check if item has an image."""
+        return bool(obj.image)
 
     @admin.display(description="允许标签")
     def display_tags(self, obj):
