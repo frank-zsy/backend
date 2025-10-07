@@ -5,12 +5,25 @@
             <img src="{% static 'nobleui/images/logo-mini-light.png' %}" class="logo-mini logo-mini-light" alt="logo" width="40" height="40">
             <img src="{% static 'nobleui/images/logo-mini-dark.png' %}" class="logo-mini logo-mini-dark" alt="logo" width="40" height="40">
         </div>
-        <form class="search-form" method="get" action="#">
+        <form
+            class="search-form"
+            method="get"
+            action="{% url 'homepage:search' %}"
+        >
             <div class="input-group">
                 <div class="input-group-text">
                     <i data-lucide="search"></i>
                 </div>
-                <input type="text" class="form-control" id="navbarForm" placeholder="搜索..." name="q">
+                <input
+                    type="text"
+                    class="form-control"
+                    id="navbarForm"
+                    placeholder="搜索..."
+                    name="q"
+                    value="{{ request.GET.q|default_if_none:'' }}"
+                    aria-label="搜索用户或项目"
+                    required
+                >
             </div>
         </form>
         <ul class="navbar-nav">

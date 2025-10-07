@@ -45,7 +45,11 @@
                                     height="40"
                                 />
                             </div>
-                            <form class="search-form" method="get" action="#">
+                            <form
+                                class="search-form"
+                                method="get"
+                                action="{% url 'homepage:search' %}"
+                            >
                                 <div class="input-group">
                                     <div class="input-group-text">
                                         <i data-lucide="search"></i>
@@ -56,6 +60,9 @@
                                         id="navbarForm"
                                         placeholder="搜索..."
                                         name="q"
+                                        value="{{ request.GET.q|default_if_none:'' }}"
+                                        aria-label="搜索用户或项目"
+                                        required
                                     />
                                 </div>
                             </form>
