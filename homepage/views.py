@@ -1,7 +1,8 @@
 """Views for the homepage app."""
 
 import json
-from contextlib import suppress
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -21,6 +22,94 @@ def index(request):
     return render(request, "homepage/index.html")
 
 
+@dataclass
+class SearchFilters:
+    """Filters extracted from the incoming request."""
+
+    location: str = ""
+    company: str = ""
+    min_points_raw: str = ""
+    sort: str = "relevance"
+
+    @classmethod
+    def from_request(cls, request):
+        """Build filters from query parameters."""
+        return cls(
+            location=request.GET.get("location", "").strip(),
+            company=request.GET.get("company", "").strip(),
+            min_points_raw=request.GET.get("min_points", "").strip(),
+            sort=request.GET.get("sort", "relevance"),
+        )
+
+    def ordering(self) -> Iterable[str]:
+        """Return database ordering for the chosen sort."""
+        sort_map = {
+            "relevance": ["-points_sum", "username"],
+            "points_desc": ["-points_sum", "username"],
+            "points_asc": ["points_sum", "username"],
+            "username": ["username"],
+        }
+        return sort_map.get(self.sort, sort_map["relevance"])
+
+
+def _parse_min_points(raw_value: str) -> tuple[int | None, bool]:
+    """Convert the raw minimum points input into an integer."""
+    if not raw_value:
+        return None, False
+
+    try:
+        value = int(raw_value)
+    except ValueError:
+        return None, True
+
+    return (value if value > 0 else None), False
+
+
+def _apply_optional_filters(queryset, filters: SearchFilters):
+    """Apply optional location and company filters."""
+    lookups = {
+        "profile__location__icontains": filters.location,
+        "profile__company__icontains": filters.company,
+    }
+    criteria = {lookup: value for lookup, value in lookups.items() if value}
+    if criteria:
+        queryset = queryset.filter(**criteria)
+    return queryset
+
+
+def _collect_available_values(queryset, field: str) -> list[str]:
+    """Return ordered distinct values for the requested profile field."""
+    lookup = f"profile__{field}"
+    return list(
+        queryset.exclude(**{f"{lookup}__isnull": True})
+        .exclude(**{f"{lookup}__exact": ""})
+        .values_list(lookup, flat=True)
+        .distinct()
+        .order_by(lookup)
+    )
+
+
+def _resolve_profile(user):
+    try:
+        return user.profile
+    except UserProfile.DoesNotExist:  # pragma: no cover - defensive
+        return None
+
+
+def _serialize_user(user):
+    profile = _resolve_profile(user)
+    return {
+        "username": user.username,
+        "display_name": user.get_full_name() or user.username,
+        "bio": getattr(profile, "bio", "") or "",
+        "company": getattr(profile, "company", "") or "",
+        "location": getattr(profile, "location", "") or "",
+        "total_points": getattr(user, "points_sum", 0),
+        "profile_url": reverse("public_profile", args=[user.username]),
+        "avatar_url": f"https://ui-avatars.com/api/?name={user.username}&background=random",
+    }
+
+
 def user_search(request):
     """Search for users by keyword and render results with filters."""
     query = request.GET.get("q", "").strip()
@@ -29,12 +118,11 @@ def user_search(request):
         return redirect("homepage:index")
 
     User = get_user_model()
-
-    # Redirect immediately on exact username match (case-insensitive).
     exact_match = User.objects.filter(username__iexact=query).first()
     if exact_match:
         return redirect("public_profile", username=exact_match.username)
 
+    filters = SearchFilters.from_request(request)
     users_qs = (
         User.objects.filter(
             Q(username__icontains=query)
@@ -49,80 +137,22 @@ def user_search(request):
         .distinct()
     )
 
-    # Filters
-    location = request.GET.get("location", "").strip()
-    company = request.GET.get("company", "").strip()
-    min_points_raw = request.GET.get("min_points", "").strip()
-    sort = request.GET.get("sort", "relevance")
+    users_qs = _apply_optional_filters(users_qs, filters)
 
-    if location:
-        users_qs = users_qs.filter(profile__location__icontains=location)
+    min_points, invalid_min_points = _parse_min_points(filters.min_points_raw)
+    if invalid_min_points:
+        messages.error(request, "最低积分需要是整数。")
+    if min_points is not None:
+        users_qs = users_qs.filter(points_sum__gte=min_points)
 
-    if company:
-        users_qs = users_qs.filter(profile__company__icontains=company)
-
-    invalid_min_points = False
-    min_points_value = None
-    if min_points_raw:
-        try:
-            min_points_value = int(min_points_raw)
-        except ValueError:
-            invalid_min_points = True
-            messages.error(request, "最低积分需要是整数。")
-        else:
-            if min_points_value > 0:
-                users_qs = users_qs.filter(points_sum__gte=min_points_value)
-
-    sort_map = {
-        "relevance": ["-points_sum", "username"],
-        "points_desc": ["-points_sum", "username"],
-        "points_asc": ["points_sum", "username"],
-        "username": ["username"],
-    }
-    order_by = sort_map.get(sort, sort_map["relevance"])
-    users_qs = users_qs.order_by(*order_by)
+    users_qs = users_qs.order_by(*filters.ordering())
 
     total_matches = users_qs.count()
+    available_locations = _collect_available_values(users_qs, "location")
+    available_companies = _collect_available_values(users_qs, "company")
 
-    # Prepare filter options based on current result set (before limiting).
-    available_locations = (
-        users_qs.exclude(profile__location__isnull=True)
-        .exclude(profile__location__exact="")
-        .values_list("profile__location", flat=True)
-        .distinct()
-        .order_by("profile__location")
-    )
-    available_companies = (
-        users_qs.exclude(profile__company__isnull=True)
-        .exclude(profile__company__exact="")
-        .values_list("profile__company", flat=True)
-        .distinct()
-        .order_by("profile__company")
-    )
-
-    results = []
-    for user in users_qs[:MAX_SEARCH_RESULTS]:
-        profile = None
-        with suppress(UserProfile.DoesNotExist):
-            profile = user.profile
-
-        bio = profile.bio if profile and profile.bio else ""
-        company_display = profile.company if profile and profile.company else ""
-        location_display = profile.location if profile and profile.location else ""
-        total_points = getattr(user, "points_sum", 0)
-
-        results.append(
-            {
-                "username": user.username,
-                "display_name": (user.get_full_name() or user.username),
-                "bio": bio,
-                "company": company_display,
-                "location": location_display,
-                "total_points": total_points,
-                "profile_url": reverse("public_profile", args=[user.username]),
-                "avatar_url": f"https://ui-avatars.com/api/?name={user.username}&background=random",
-            }
-        )
+    limited_users = users_qs[:MAX_SEARCH_RESULTS]
+    results = [_serialize_user(user) for user in limited_users]
 
     context = {
         "query": query,
@@ -131,13 +161,13 @@ def user_search(request):
         "results_count": total_matches,
         "max_results": MAX_SEARCH_RESULTS,
         "filters": {
-            "location": location,
-            "company": company,
-            "min_points": min_points_raw,
-            "sort": sort,
+            "location": filters.location,
+            "company": filters.company,
+            "min_points": filters.min_points_raw,
+            "sort": filters.sort,
         },
-        "available_locations": list(available_locations),
-        "available_companies": list(available_companies),
+        "available_locations": available_locations,
+        "available_companies": available_companies,
         "page_size": PAGE_SIZE,
         "invalid_min_points": invalid_min_points,
     }

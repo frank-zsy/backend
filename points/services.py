@@ -1,6 +1,7 @@
 """积分系统的业务逻辑服务层, 提供积分发放和消费功能."""
 
 import logging
+from collections.abc import Iterable
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -13,6 +14,19 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+def _normalize_user(user: User | None = None, user_profile: User | None = None) -> User:
+    """Return a concrete user instance from legacy arguments."""
+    if user is None and user_profile is None:
+        msg = "必须提供 user 或 user_profile 参数。"
+        raise ValueError(msg)
+
+    if user is not None and user_profile is not None and user != user_profile:
+        msg = "user 与 user_profile 参数指向不同的用户。"
+        raise ValueError(msg)
+
+    return user or user_profile
+
+
 # 定义一个自定义异常，便于上层逻辑捕获
 class InsufficientPointsError(Exception):
     """当用户积分不足时抛出此异常."""
@@ -22,11 +36,13 @@ class InsufficientPointsError(Exception):
 
 @transaction.atomic
 def grant_points(
-    user: User,
+    user: User | None = None,
+    *,
     points: int,
     description: str,
-    tag_names: list[str],
+    tag_names: Iterable[str] | None = None,
     source_object=None,
+    **legacy_kwargs,
 ) -> PointSource:
     """
     为用户发放积分.
@@ -34,11 +50,12 @@ def grant_points(
     这是一个原子操作.
 
     Args:
-        user (User): 获得积分的用户.
+        user (User | None): 获得积分的用户 (兼容旧版参数名)。
         points (int): 发放的积分数量, 必须为正数.
         description (str): 积分来源描述, 将记录在流水中.
-        tag_names (list[str]): 一个包含标签名称的列表. 如果标签不存在, 会自动创建.
+        tag_names (Iterable[str] | None): 一个包含标签名称的集合. 如果标签不存在, 会自动创建.
         source_object (models.Model, optional): 关联的源对象, 用于追溯.
+        **legacy_kwargs: 接受 legacy user_profile 参数.
 
     Returns:
         PointSource: 新创建的积分来源对象.
@@ -47,9 +64,19 @@ def grant_points(
         ValueError: 如果 points 不是正数.
 
     """
+    legacy_user_profile = legacy_kwargs.pop("user_profile", None)
+    if legacy_kwargs:
+        unexpected = ", ".join(sorted(legacy_kwargs))
+        msg = f"Unsupported legacy kwargs: {unexpected}"
+        raise TypeError(msg)
+
+    resolved_user = _normalize_user(user=user, user_profile=legacy_user_profile)
+
     if not isinstance(points, int) or points <= 0:
         msg = "发放的积分必须是正整数。"
         raise ValueError(msg)
+
+    tag_names = list(tag_names or [])
 
     # 1. 处理标签：获取或创建（Get or Create）
     # 支持使用 name 或 slug 来查找标签
@@ -72,7 +99,7 @@ def grant_points(
 
     # 2. 创建积分来源（积分桶）
     new_source = PointSource.objects.create(
-        user=user,
+        user=resolved_user,
         initial_points=points,
         remaining_points=points,
     )
@@ -81,7 +108,7 @@ def grant_points(
 
     # 3. 记录积分流水（账本）
     PointTransaction.objects.create(
-        user=user,
+        user=resolved_user,
         points=points,  # 正数表示增加
         transaction_type=PointTransaction.TransactionType.EARN,
         description=description,
@@ -89,22 +116,27 @@ def grant_points(
 
     logger.info(
         "积分发放成功: 用户=%s (ID=%s), 积分=%s, 标签=%s, 描述=%s",
-        user.username,
-        user.id,
+        resolved_user.username,
+        resolved_user.id,
         points,
         tag_names,
         description,
     )
+
+    if hasattr(resolved_user, "clear_points_cache"):
+        resolved_user.clear_points_cache()
 
     return new_source
 
 
 @transaction.atomic
 def spend_points(
-    user: User,
+    user: User | None = None,
+    *,
     amount: int,
     description: str,
     priority_tag_name: str | None = None,
+    **legacy_kwargs,
 ) -> PointTransaction:
     """
     消费用户的积分.
@@ -112,10 +144,11 @@ def spend_points(
     这是一个原子操作, 并实现了优先扣除逻辑.
 
     Args:
-        user (User): 消费积分的用户.
+        user (User | None): 消费积分的用户 (兼容旧版参数名)。
         amount (int): 消费的积分数量, 必须为正数.
         description (str): 消费描述, 将记录在流水中.
         priority_tag_name (str | None, optional): 优先扣除的标签名称.
+        **legacy_kwargs: 接受 legacy user_profile 参数.
 
     Returns:
         PointTransaction: 新创建的消费流水对象.
@@ -125,102 +158,53 @@ def spend_points(
         InsufficientPointsError: 如果用户总积分不足以消费.
 
     """
+    legacy_user_profile = legacy_kwargs.pop("user_profile", None)
+    if legacy_kwargs:
+        unexpected = ", ".join(sorted(legacy_kwargs))
+        msg = f"Unsupported legacy kwargs: {unexpected}"
+        raise TypeError(msg)
+
+    resolved_user = _normalize_user(user=user, user_profile=legacy_user_profile)
+
     if not isinstance(amount, int) or amount <= 0:
         msg = "消费的积分必须是正整数。"
         raise ValueError(msg)
 
-    # 1. 快速失败：先检查总余额是否足够（使用行级锁确保并发安全）
-    # 锁定所有可用的积分来源，防止并发修改
-    all_sources = PointSource.objects.filter(
-        user=user, remaining_points__gt=0
+    active_sources = PointSource.objects.filter(
+        user=resolved_user, remaining_points__gt=0
     ).select_for_update()
-
-    # 计算总余额
-    current_balance = sum(source.remaining_points for source in all_sources)
-    if current_balance < amount:
-        msg = f"积分不足。当前余额: {current_balance}, 需要: {amount}"
-        logger.warning(
-            "积分消费失败（余额不足）: 用户=%s (ID=%s), 需要=%s, 当前余额=%s, 描述=%s",
-            user.username,
-            user.id,
-            amount,
-            current_balance,
-            description,
-        )
-        raise InsufficientPointsError(msg)
+    current_balance = sum(source.remaining_points for source in active_sources)
+    _ensure_sufficient_balance(resolved_user, amount, current_balance, description)
 
     amount_to_deduct = amount
-    consumed_sources_list = []
+    consumed_sources_list: list[PointSource] = []
+    consumed_ids: set[int] = set()
 
-    # 辅助函数，用于从给定的查询集中扣除积分 (DRY - Don't Repeat Yourself)
-    def _deduct_from_sources(queryset, needed):
-        consumed = []
-        # 使用 select_for_update() 锁定行，防止并发修改
-        for source in queryset.select_for_update():
-            if needed <= 0:
-                break
+    for filters in _deduction_conditions(priority_tag_name):
+        if amount_to_deduct <= 0:
+            break
 
-            deduct_amount = min(source.remaining_points, needed)
-
-            # 使用 F() 表达式防止竞态条件
-            source.remaining_points = F("remaining_points") - deduct_amount
-            source.save(update_fields=["remaining_points"])
-
-            needed -= deduct_amount
-            consumed.append(source)
-        return needed, consumed
-
-    # 2. 优先扣除特定标签的积分
-    if priority_tag_name:
-        priority_sources = PointSource.objects.filter(
-            user=user,
-            remaining_points__gt=0,
-            tags__name=priority_tag_name,
-        ).order_by("created_at")  # FIFO
-
-        amount_to_deduct, consumed = _deduct_from_sources(
-            priority_sources, amount_to_deduct
-        )
-        consumed_sources_list.extend(consumed)
-
-    # 3. 如果还不够，扣除默认标签的积分
-    if amount_to_deduct > 0:
-        default_sources = (
+        queryset = (
             PointSource.objects.filter(
-                user=user, remaining_points__gt=0, tags__is_default=True
+                user=resolved_user,
+                remaining_points__gt=0,
+                **filters,
             )
-            .exclude(id__in=[s.id for s in consumed_sources_list])
+            .exclude(id__in=list(consumed_ids))
             .order_by("created_at")
         )
 
-        amount_to_deduct, consumed = _deduct_from_sources(
-            default_sources, amount_to_deduct
-        )
+        amount_to_deduct, consumed = _deduct_from_queryset(queryset, amount_to_deduct)
         consumed_sources_list.extend(consumed)
+        consumed_ids.update(source.id for source in consumed)
 
-    # 4. 如果仍然不够，从任意剩余积分中扣除 (兜底逻辑)
-    if amount_to_deduct > 0:
-        any_remaining_sources = (
-            PointSource.objects.filter(user=user, remaining_points__gt=0)
-            .exclude(id__in=[s.id for s in consumed_sources_list])
-            .order_by("created_at")
-        )
-
-        amount_to_deduct, consumed = _deduct_from_sources(
-            any_remaining_sources, amount_to_deduct
-        )
-        consumed_sources_list.extend(consumed)
-
-    # 安全检查：理论上此时 amount_to_deduct 应该为 0
     if amount_to_deduct > 0:  # pragma: no cover
-        # 这个异常不应该被触发，如果触发了说明初始余额检查和扣除逻辑之间存在不一致，
-        # 可能是由于非常高的并发导致，但 @transaction.atomic 已经提供了很强的保护。
         msg = "积分扣除逻辑异常：最终应扣除额度大于0。"
         raise Exception(msg)
 
     # 5. 创建消费流水记录
     spend_transaction = PointTransaction.objects.create(
-        user=user,
+        user=resolved_user,
         points=-amount,  # 负数表示减少
         transaction_type=PointTransaction.TransactionType.SPEND,
         description=description,
@@ -230,8 +214,8 @@ def spend_points(
 
     logger.info(
         "积分消费成功: 用户=%s (ID=%s), 消费=%s, 剩余=%s, 消费源数量=%s, 优先标签=%s, 描述=%s",
-        user.username,
-        user.id,
+        resolved_user.username,
+        resolved_user.id,
         amount,
         current_balance - amount,
         len(consumed_sources_list),
@@ -239,4 +223,48 @@ def spend_points(
         description,
     )
 
+    if hasattr(resolved_user, "clear_points_cache"):
+        resolved_user.clear_points_cache()
+
     return spend_transaction
+
+
+def _deduct_from_queryset(queryset, needed):
+    """Deduct points from the provided queryset in FIFO order."""
+    consumed = []
+    for source in queryset.select_for_update():
+        if needed <= 0:
+            break
+
+        deduct_amount = min(source.remaining_points, needed)
+        source.remaining_points = F("remaining_points") - deduct_amount
+        source.save(update_fields=["remaining_points"])
+        consumed.append(source)
+        needed -= deduct_amount
+
+    return needed, consumed
+
+
+def _deduction_conditions(priority_tag_name: str | None):
+    """Yield successive deduction filters based on priority rules."""
+    if priority_tag_name:
+        yield {"tags__name": priority_tag_name}
+    yield {"tags__is_default": True}
+    yield {}
+
+
+def _ensure_sufficient_balance(user, amount, current_balance, description):
+    """Raise InsufficientPointsError when the balance is too low."""
+    if current_balance >= amount:
+        return
+
+    msg = f"积分不足。当前余额: {current_balance}, 需要: {amount}"
+    logger.warning(
+        "积分消费失败（余额不足）: 用户=%s (ID=%s), 需要=%s, 当前余额=%s, 描述=%s",
+        user.username,
+        user.id,
+        amount,
+        current_balance,
+        description,
+    )
+    raise InsufficientPointsError(msg)

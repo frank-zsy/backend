@@ -1,7 +1,5 @@
 """User models for accounts app."""
 
-from functools import cached_property
-
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.db.models import Sum
@@ -46,7 +44,7 @@ class User(AbstractUser):
         verbose_name = "用户"
         verbose_name_plural = verbose_name
 
-    @cached_property
+    @property
     def total_points(self):
         """
         Get total points for the user (cached).

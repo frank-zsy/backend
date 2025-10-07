@@ -10,6 +10,77 @@ from django.db.models.functions import TruncDate
 from django.shortcuts import render
 from django.utils import timezone
 
+from points.models import Tag
+
+TREND_DAYS = 30
+
+
+def _trend_date_range():
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=TREND_DAYS - 1)
+    return start_date, end_date
+
+
+def _build_trend_labels(start_date):
+    return [
+        (start_date + timedelta(days=offset)).strftime("%m/%d")
+        for offset in range(TREND_DAYS)
+    ]
+
+
+def _user_tags(user):
+    return Tag.objects.filter(point_sources__user=user).distinct().order_by("name")
+
+
+def _collect_daily_changes(user, tag, start_date):
+    changes: dict = {}
+
+    earn_sources = (
+        user.point_sources.filter(tags=tag, created_at__date__gte=start_date)
+        .annotate(date=TruncDate("created_at"))
+        .values("date")
+        .annotate(total_points=Sum("initial_points"))
+        .order_by("date")
+    )
+    for item in earn_sources:
+        changes[item["date"]] = changes.get(item["date"], 0) + item["total_points"]
+
+    spend_transactions = (
+        user.point_transactions.filter(
+            created_at__date__gte=start_date,
+            transaction_type="SPEND",
+            consumed_sources__tags=tag,
+        )
+        .annotate(date=TruncDate("created_at"))
+        .values("date")
+        .annotate(total_points=Sum("points"))
+        .order_by("date")
+    )
+    for item in spend_transactions:
+        changes[item["date"]] = changes.get(item["date"], 0) + item["total_points"]
+
+    return changes
+
+
+def _build_tag_trend(user, tag, start_date):
+    daily_changes = _collect_daily_changes(user, tag, start_date)
+    current_tag_points = sum(
+        source.remaining_points for source in user.point_sources.filter(tags=tag)
+    )
+    total_change = sum(daily_changes.values())
+    starting_points = current_tag_points - total_change
+
+    trend_data = []
+    cumulative = starting_points
+    for offset in range(TREND_DAYS):
+        current_date = start_date + timedelta(days=offset)
+        cumulative += daily_changes.get(current_date, 0)
+        trend_data.append(cumulative)
+
+    if current_tag_points > 0 or total_change != 0:
+        return {"label": tag.name, "data": trend_data}
+    return None
+
 
 @login_required
 def my_points(request):
@@ -39,86 +110,13 @@ def my_points(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    # Calculate points trend data for the last 30 days
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=29)  # 30 days including today
-
-    # Generate date labels for all 30 days
-    trend_labels = []
-    for i in range(30):
-        current_date = start_date + timedelta(days=i)
-        trend_labels.append(current_date.strftime("%m/%d"))
-
-    # Get all tags that the user has points from
-    from points.models import Tag
-
-    user_tags = (
-        Tag.objects.filter(point_sources__user_profile=user).distinct().order_by("name")
-    )
-
-    # Calculate trend data for each tag
+    start_date, _ = _trend_date_range()
+    trend_labels = _build_trend_labels(start_date)
     trend_datasets = []
-    for tag in user_tags:
-        # Create a dict for daily changes for this tag
-        daily_changes = {}
-
-        # 1. Get EARN transactions (points granted with this tag)
-        # These are tracked via PointSource created_at
-        earn_sources = (
-            user.point_sources.filter(tags=tag, created_at__date__gte=start_date)
-            .annotate(date=TruncDate("created_at"))
-            .values("date")
-            .annotate(total_points=Sum("initial_points"))
-            .order_by("date")
-        )
-
-        for item in earn_sources:
-            daily_changes[item["date"]] = (
-                daily_changes.get(item["date"], 0) + item["total_points"]
-            )
-
-        # 2. Get SPEND transactions (points consumed from sources with this tag)
-        spend_transactions = (
-            user.point_transactions.filter(
-                created_at__date__gte=start_date,
-                transaction_type="SPEND",
-                consumed_sources__tags=tag,
-            )
-            .annotate(date=TruncDate("created_at"))
-            .values("date")
-            .annotate(total_points=Sum("points"))
-            .order_by("date")
-        )
-
-        for item in spend_transactions:
-            # points are negative for SPEND transactions
-            daily_changes[item["date"]] = (
-                daily_changes.get(item["date"], 0) + item["total_points"]
-            )
-
-        # Calculate cumulative points for this tag
-        # Get current points for this tag (include all sources, even if used up)
-        current_tag_points = sum(
-            source.remaining_points for source in user.point_sources.filter(tags=tag)
-        )
-
-        # Calculate total change during the period
-        total_change = sum(daily_changes.values())
-        starting_points = current_tag_points - total_change
-
-        # Generate trend data
-        tag_data = []
-        cumulative = starting_points
-        for i in range(30):
-            current_date = start_date + timedelta(days=i)
-            daily_change = daily_changes.get(current_date, 0)
-            cumulative += daily_change
-            tag_data.append(cumulative)
-
-        # Only add to datasets if there's meaningful data
-        # (either current points or changes during period)
-        if current_tag_points > 0 or total_change != 0:
-            trend_datasets.append({"label": tag.name, "data": tag_data})
+    for tag in _user_tags(user):
+        dataset = _build_tag_trend(user, tag, start_date)
+        if dataset:
+            trend_datasets.append(dataset)
 
     context = {
         "total_points": user.total_points,

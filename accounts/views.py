@@ -63,6 +63,50 @@ def profile_view(request):
     return render(request, "profile.html", {"profile": profile})
 
 
+def _get_profile_edit_forms(
+    request,
+    profile,
+    work_formset_factory,
+    education_formset_factory,
+):
+    """Return bound or unbound forms for the profile edit view."""
+    if request.method == "POST":
+        form = ProfileForm(request.POST, instance=profile)
+        work_formset = work_formset_factory(request.POST, instance=profile)
+        education_formset = education_formset_factory(request.POST, instance=profile)
+        return form, work_formset, education_formset, True
+
+    form = ProfileForm(instance=profile)
+    work_formset = work_formset_factory(instance=profile)
+    education_formset = education_formset_factory(instance=profile)
+    return form, work_formset, education_formset, False
+
+
+def _save_profile_form(form):
+    """Persist profile changes when the form has updates."""
+    if not form.has_changed():
+        return False
+    form.save()
+    return True
+
+
+def _persist_inline_formset(formset):
+    """Save inline formset changes, including deletions."""
+    changed = False
+    for instance in formset.save(commit=False):
+        instance.save()
+        changed = True
+
+    for instance in formset.deleted_objects:
+        instance.delete()
+        changed = True
+
+    if hasattr(formset, "save_m2m"):
+        formset.save_m2m()
+
+    return changed
+
+
 @login_required
 def profile_edit_view(request):
     """Handle profile editing with Bootstrap 5 form."""
@@ -84,44 +128,26 @@ def profile_edit_view(request):
         can_delete=True,
     )
 
-    if request.method == "POST":
-        form = ProfileForm(request.POST, instance=profile)
-        work_formset = WorkExperienceFormSet(request.POST, instance=profile)
-        education_formset = EducationFormSet(request.POST, instance=profile)
+    form, work_formset, education_formset, is_post = _get_profile_edit_forms(
+        request,
+        profile,
+        WorkExperienceFormSet,
+        EducationFormSet,
+    )
 
-        if form.is_valid() and work_formset.is_valid() and education_formset.is_valid():
-            has_changes = False
+    if is_post and all(
+        form_like.is_valid() for form_like in (form, work_formset, education_formset)
+    ):
+        form_changed = _save_profile_form(form)
+        work_changed = _persist_inline_formset(work_formset)
+        education_changed = _persist_inline_formset(education_formset)
 
-            if form.has_changed():
-                form.save()
-                has_changes = True
+        if form_changed or work_changed or education_changed:
+            messages.success(request, "个人资料已更新")
+        else:
+            messages.info(request, "未检测到任何更改")
 
-            work_instances = work_formset.save(commit=False)
-            if work_instances or work_formset.deleted_objects:
-                for instance in work_instances:
-                    instance.save()
-                for instance in work_formset.deleted_objects:
-                    instance.delete()
-                has_changes = True
-
-            education_instances = education_formset.save(commit=False)
-            if education_instances or education_formset.deleted_objects:
-                for instance in education_instances:
-                    instance.save()
-                for instance in education_formset.deleted_objects:
-                    instance.delete()
-                has_changes = True
-
-            if has_changes:
-                messages.success(request, "个人资料已更新")
-            else:
-                messages.info(request, "未检测到任何更改")
-
-            return redirect("accounts:profile")
-    else:
-        form = ProfileForm(instance=profile)
-        work_formset = WorkExperienceFormSet(instance=profile)
-        education_formset = EducationFormSet(instance=profile)
+        return redirect("accounts:profile")
 
     return render(
         request,
