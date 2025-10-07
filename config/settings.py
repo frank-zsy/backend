@@ -12,7 +12,7 @@ env = environ.Env(
     DEBUG=(bool, False),
     SECRET_KEY=(
         str,
-        "django-insecure-17-*%ffc2j%zu$j$z+8n)=wzljy%5$k2dem=h3^p!h5p2x4tvu",
+        "PLACEHOLDER_SECRET_KEY_CHANGE_ME!",
     ),
     DATABASE_URL=(str, "sqlite:///db.sqlite3"),
     ALLOWED_HOSTS=(list, []),
@@ -47,8 +47,8 @@ env = environ.Env(
     SOCIAL_AUTH_LINKEDIN_OAUTH2_SECRET=(str, ""),
     SOCIAL_AUTH_TWITTER_OAUTH2_KEY=(str, ""),
     SOCIAL_AUTH_TWITTER_OAUTH2_SECRET=(str, ""),
-    MAILGUN_API_KEY=(str, "MAILGUN_API_KEY"),
-    MAILGUN_SENDER_DOMAIN=(str, "MAILGUN_SENDER_DOMAIN"),
+    MAILGUN_API_KEY=(str, "PLACEHOLDER_MAILGUN_API_KEY"),
+    MAILGUN_SENDER_DOMAIN=(str, "PLACEHOLDER_MAILGUN_SENDER_DOMAIN"),
 )
 
 SECRET_KEY = env("SECRET_KEY")
