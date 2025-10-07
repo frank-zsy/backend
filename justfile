@@ -16,7 +16,7 @@ fmt:
     @uv run -m pre_commit run  djlint-django --all-files
 
 
-db_update:
+migrate:
     @uv run manage.py makemigrations
     @uv run manage.py migrate
 
