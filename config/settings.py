@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "django.contrib.flatpages",
     "django.contrib.redirects",
+    "django.contrib.admindocs",
     # third party app
     "django_extensions",
     "django_tasks",
