@@ -1,6 +1,6 @@
 """Tests for accounts app."""
 
-# Import all test classes to ensure pytest can discover them
+# Import all test classes to ensure Django's test discovery can find them
 
 # Model tests
 # Admin tests
