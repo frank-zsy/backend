@@ -1,8 +1,12 @@
 """User models for accounts app."""
 
 from django.contrib.auth.models import AbstractUser, UserManager
+from django.core.cache import cache
 from django.db import models
 from django.db.models import Sum
+
+TOTAL_POINTS_CACHE_KEY_TEMPLATE = "accounts:user_total_points:{user_id}"
+TOTAL_POINTS_CACHE_TIMEOUT = 300
 
 
 class UserQuerySet(models.QuerySet):
@@ -52,11 +56,21 @@ class User(AbstractUser):
         Cache is automatically cleared when PointSource or PointTransaction is modified.
         For up-to-date values in queries, use User.objects.annotate_with_points() instead.
         """
-        total = self.point_sources.aggregate(total=Sum("remaining_points"))["total"]
-        return total or 0
+        cache_key = TOTAL_POINTS_CACHE_KEY_TEMPLATE.format(user_id=self.pk)
+        cached_total = cache.get(cache_key)
+        if cached_total is not None:
+            return cached_total
+
+        total = (
+            self.point_sources.aggregate(total=Sum("remaining_points"))["total"] or 0
+        )
+        cache.set(cache_key, total, TOTAL_POINTS_CACHE_TIMEOUT)
+        return total
 
     def clear_points_cache(self):
         """Clear cached points value."""
+        cache_key = TOTAL_POINTS_CACHE_KEY_TEMPLATE.format(user_id=self.pk)
+        cache.delete(cache_key)
         if "total_points" in self.__dict__:
             del self.__dict__["total_points"]
 

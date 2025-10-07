@@ -12,6 +12,8 @@ from django.core.handlers.wsgi import WSGIHandler
 from django.test import SimpleTestCase
 from django.urls import resolve
 
+from config.settings import _build_cache_settings, _determine_email_backend
+
 
 class ConfigModuleTests(SimpleTestCase):
     """Test cases for configuration module."""
@@ -21,6 +23,10 @@ class ConfigModuleTests(SimpleTestCase):
         assert settings.AUTH_USER_MODEL == "accounts.User"
         assert "MAILGUN_API_KEY" in settings.ANYMAIL
         assert "MAILGUN_SENDER_DOMAIN" in settings.ANYMAIL
+        assert (
+            settings.CACHES["default"]["BACKEND"]
+            == "django.core.cache.backends.locmem.LocMemCache"
+        )
 
     def test_root_url_resolves_homepage_index(self):
         """Test that root URL resolves to homepage index view."""
@@ -62,3 +68,39 @@ class ConfigModuleTests(SimpleTestCase):
     def test_language_code_is_chinese(self):
         """Test that default language is Chinese."""
         assert settings.LANGUAGE_CODE == "zh-hans"
+
+    def test_cache_configuration_uses_redis_when_url_present(self):
+        """Cache helper returns redis backend when URL is provided."""
+        caches = _build_cache_settings(False, "redis://localhost:6379/1")
+        assert (
+            caches["default"]["BACKEND"]
+            == "django.core.cache.backends.redis.RedisCache"
+        )
+        assert caches["default"]["LOCATION"] == "redis://localhost:6379/1"
+
+    def test_cache_configuration_dummy_vs_locmem(self):
+        """Cache helper falls back to dummy in debug and locmem otherwise."""
+        debug_cache = _build_cache_settings(True, "")
+        prod_cache = _build_cache_settings(False, "")
+
+        assert (
+            debug_cache["default"]["BACKEND"]
+            == "django.core.cache.backends.dummy.DummyCache"
+        )
+        assert (
+            prod_cache["default"]["BACKEND"]
+            == "django.core.cache.backends.locmem.LocMemCache"
+        )
+
+    def test_email_backend_falls_back_to_console(self):
+        """Console email backend is selected when Mailgun keys are missing."""
+        backend, anymail = _determine_email_backend("", "")
+        assert backend == "django.core.mail.backends.console.EmailBackend"
+        assert anymail == {}
+
+    def test_email_backend_uses_mailgun_configuration(self):
+        """Mailgun settings are returned when both key and domain exist."""
+        backend, anymail = _determine_email_backend("key", "domain")
+        assert backend == "anymail.backends.mailgun.EmailBackend"
+        assert anymail["MAILGUN_API_KEY"] == "key"
+        assert anymail["MAILGUN_SENDER_DOMAIN"] == "domain"

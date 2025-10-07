@@ -1,11 +1,13 @@
 """Views for the homepage app."""
 
+import hashlib
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import redirect, render
@@ -13,8 +15,11 @@ from django.urls import reverse
 
 from accounts.models import UserProfile
 
+from .cache import get_search_cache_version
+
 MAX_SEARCH_RESULTS = 150
 PAGE_SIZE = 12
+SEARCH_RESULTS_CACHE_TIMEOUT = 60
 
 
 def index(request):
@@ -123,6 +128,20 @@ def user_search(request):
         return redirect("public_profile", username=exact_match.username)
 
     filters = SearchFilters.from_request(request)
+    min_points, invalid_min_points = _parse_min_points(filters.min_points_raw)
+    if invalid_min_points:
+        messages.error(request, "最低积分需要是整数。")
+
+    cache_key = _build_search_cache_key(
+        query=query,
+        filters=filters,
+        min_points=min_points,
+        invalid_min_points=invalid_min_points,
+    )
+    cached_context = cache.get(cache_key)
+    if cached_context is not None:
+        return render(request, "homepage/search_results.html", cached_context)
+
     users_qs = (
         User.objects.filter(
             Q(username__icontains=query)
@@ -139,9 +158,6 @@ def user_search(request):
 
     users_qs = _apply_optional_filters(users_qs, filters)
 
-    min_points, invalid_min_points = _parse_min_points(filters.min_points_raw)
-    if invalid_min_points:
-        messages.error(request, "最低积分需要是整数。")
     if min_points is not None:
         users_qs = users_qs.filter(points_sum__gte=min_points)
 
@@ -172,4 +188,29 @@ def user_search(request):
         "invalid_min_points": invalid_min_points,
     }
 
+    cache.set(cache_key, context, SEARCH_RESULTS_CACHE_TIMEOUT)
+
     return render(request, "homepage/search_results.html", context)
+
+
+def _build_search_cache_key(
+    *,
+    query: str,
+    filters: SearchFilters,
+    min_points: int | None,
+    invalid_min_points: bool,
+) -> str:
+    payload = {
+        "query": query,
+        "location": filters.location,
+        "company": filters.company,
+        "min_points_raw": filters.min_points_raw,
+        "min_points": min_points,
+        "sort": filters.sort,
+        "invalid_min_points": invalid_min_points,
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    version = get_search_cache_version()
+    return f"homepage:user_search:{version}:{digest}"

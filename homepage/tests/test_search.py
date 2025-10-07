@@ -1,10 +1,13 @@
 """Tests for homepage user search view."""
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import UserProfile
+from homepage import views as homepage_views
+from homepage.cache import get_search_cache_version
 from points.models import PointSource
 
 
@@ -136,3 +139,61 @@ class HomepageUserSearchTests(TestCase):
 
         self.assertGreaterEqual(response.context["results_count"], 2)
         self.assertEqual(response.context["filters"]["sort"], "relevance")
+
+    @override_settings(
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            }
+        }
+    )
+    def test_search_results_cached_for_repeat_queries(self):
+        """Repeat searches reuse cached context instead of hitting the database."""
+        cache.clear()
+        params = {"q": "example"}
+
+        initial_response = self.client.get(self.search_url, params)
+        self.assertEqual(initial_response.status_code, 200)
+        self.assertEqual(len(initial_response.context["results"]), 2)
+
+        initial_version = get_search_cache_version()
+
+        cached_again = self.client.get(self.search_url, params)
+        self.assertEqual(len(cached_again.context["results"]), 2)
+
+        filters = homepage_views.SearchFilters()
+        cache_key = homepage_views._build_search_cache_key(
+            query="example",
+            filters=filters,
+            min_points=None,
+            invalid_min_points=False,
+        )
+        cached_context = cache.get(cache_key)
+        self.assertIsNotNone(cached_context)
+
+        charlie = self.User.objects.create_user(
+            username="charlie",
+            email="charlie@example.com",
+            password="pass1234",
+            first_name="Charlie",
+            last_name="Chaplin",
+        )
+        UserProfile.objects.create(
+            user=charlie,
+            bio="New contributor",
+            company="OpenShare",
+            location="广州",
+        )
+        PointSource.objects.create(
+            user=charlie,
+            initial_points=80,
+            remaining_points=80,
+        )
+
+        updated_version = get_search_cache_version()
+        self.assertNotEqual(initial_version, updated_version)
+
+        refreshed_response = self.client.get(self.search_url, params)
+        usernames = {item["username"] for item in refreshed_response.context["results"]}
+        self.assertIn("charlie", usernames)
+        cache.clear()

@@ -3,9 +3,15 @@
 from datetime import date
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 
-from accounts.models import Education, UserProfile, WorkExperience
+from accounts.models import (
+    TOTAL_POINTS_CACHE_KEY_TEMPLATE,
+    Education,
+    UserProfile,
+    WorkExperience,
+)
 
 
 class UserModelTests(TestCase):
@@ -80,6 +86,77 @@ class UserModelTests(TestCase):
 
         # Verify the aggregation logic is covered
         assert result == 150
+
+    @override_settings(
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            }
+        }
+    )
+    def test_total_points_cached_and_invalidated(self):
+        """total_points caches values and clears cache when data changes."""
+        from points.models import PointSource, Tag
+
+        cache.clear()
+
+        user = get_user_model().objects.create_user(
+            username="cached-user",
+            email="cached@example.com",
+            password="password123",
+        )
+
+        tag = Tag.objects.create(name="cache")
+        source = PointSource.objects.create(
+            user=user,
+            initial_points=200,
+            remaining_points=200,
+        )
+        source.tags.add(tag)
+
+        cache_key = TOTAL_POINTS_CACHE_KEY_TEMPLATE.format(user_id=user.pk)
+        assert cache.get(cache_key) is None
+
+        assert user.total_points == 200
+        # Second access should reuse cached value
+        assert user.total_points == 200
+        assert cache.get(cache_key) == 200
+
+        # Manual clear should remove cached attribute and cache entry
+        user.__dict__["total_points"] = 999
+        user.clear_points_cache()
+        assert "total_points" not in user.__dict__
+        assert cache.get(cache_key) is None
+
+        # Re-cache for signal-driven invalidation check
+        assert user.total_points == 200
+
+        source.remaining_points = 150
+        source.save()
+
+        assert cache.get(cache_key) is None
+        assert user.total_points == 150
+
+    def test_user_queryset_annotate_with_points(self):
+        """Custom queryset and manager expose annotate_with_points helper."""
+        from points.models import PointSource, Tag
+
+        user = get_user_model().objects.create_user(
+            username="annotated",
+            email="annotated@example.com",
+            password="password123",
+        )
+
+        tag = Tag.objects.create(name="annotated-tag")
+        source = PointSource.objects.create(
+            user=user,
+            initial_points=120,
+            remaining_points=90,
+        )
+        source.tags.add(tag)
+
+        annotated = get_user_model().objects.annotate_with_points().get(pk=user.pk)
+        assert annotated.total_points_calculated == 90
 
     def test_get_points_by_tag_empty(self):
         """Test get_points_by_tag returns empty list when no sources."""

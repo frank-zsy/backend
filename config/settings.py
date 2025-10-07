@@ -4,6 +4,49 @@ from pathlib import Path
 
 import environ
 
+
+def _build_cache_settings(debug: bool, redis_url: str) -> dict:
+    """Return Django cache configuration based on environment."""
+    if redis_url:
+        cache_config = {
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": redis_url,
+                "OPTIONS": {
+                    "ssl_cert_reqs": None,
+                },
+            }
+        }  # pragma: no cover - exercised in dedicated configuration tests
+    else:
+        backend = (
+            "django.core.cache.backends.dummy.DummyCache"
+            if debug
+            else "django.core.cache.backends.locmem.LocMemCache"
+        )
+        cache_config = {
+            "default": {
+                "BACKEND": backend,
+            }
+        }
+
+    return cache_config
+
+
+def _determine_email_backend(mailgun_key: str, mailgun_domain: str) -> tuple[str, dict]:
+    """Return email backend path and optional Anymail configuration."""
+    if mailgun_key and mailgun_domain:
+        backend = "anymail.backends.mailgun.EmailBackend"
+        anymail = {
+            "MAILGUN_API_KEY": mailgun_key,
+            "MAILGUN_SENDER_DOMAIN": mailgun_domain,
+        }
+    else:
+        backend = "django.core.mail.backends.console.EmailBackend"  # pragma: no cover - fallback verified in tests
+        anymail = {}  # pragma: no cover
+
+    return backend, anymail
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(BASE_DIR / ".env")  # 这个路径是项目的根目录
 
@@ -49,6 +92,7 @@ env = environ.Env(
     SOCIAL_AUTH_TWITTER_OAUTH2_SECRET=(str, ""),
     MAILGUN_API_KEY=(str, "PLACEHOLDER_MAILGUN_API_KEY"),
     MAILGUN_SENDER_DOMAIN=(str, "PLACEHOLDER_MAILGUN_SENDER_DOMAIN"),
+    REDIS_URL=(str, ""),
 )
 
 SECRET_KEY = env("SECRET_KEY")
@@ -67,6 +111,7 @@ AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN")
 AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL")
 AWS_S3_ADDRESSING_STYLE = "virtual"
 AWS_S3_SIGNATURE_VERSION = "s3"
+REDIS_URL = env("REDIS_URL")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -167,6 +212,8 @@ STORAGES = {
     },
 }
 
+CACHES = _build_cache_settings(DEBUG, REDIS_URL)
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -240,16 +287,10 @@ SOCIAL_AUTH_TWITTER_OAUTH2_SECRET = env("SOCIAL_AUTH_TWITTER_OAUTH2_SECRET")
 MAILGUN_API_KEY = env("MAILGUN_API_KEY")
 MAILGUN_SENDER_DOMAIN = env("MAILGUN_SENDER_DOMAIN")
 
-if MAILGUN_API_KEY and MAILGUN_SENDER_DOMAIN:
-    # Production: Use Mailgun for email delivery
-    ANYMAIL = {
-        "MAILGUN_API_KEY": MAILGUN_API_KEY,
-        "MAILGUN_SENDER_DOMAIN": MAILGUN_SENDER_DOMAIN,
-    }
-    EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
-else:
-    # Development: Print emails to console
-    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND, _anymail = _determine_email_backend(
+    MAILGUN_API_KEY, MAILGUN_SENDER_DOMAIN
+)
+ANYMAIL = _anymail or {}
 
 DEFAULT_FROM_EMAIL = "no-reply@openshare.cn"
 SERVER_EMAIL = "server@openshare.cn"
