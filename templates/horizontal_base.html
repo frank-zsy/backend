@@ -124,7 +124,7 @@
                                     </div>
                                 </li>
                                 <li class="nav-item dropdown">
-                                    <a
+                                <a
                                         class="nav-link dropdown-toggle"
                                         href="#"
                                         id="profileDropdown"
@@ -134,21 +134,9 @@
                                         aria-expanded="false"
                                     >
                                         {% if user.is_authenticated %}
-                                        <img
-                                            class="w-30px h-30px ms-1 rounded-circle"
-                                            src="https://ui-avatars.com/api/?name={{ user.username }}&background=random"
-                                            alt="profile"
-                                            width="30"
-                                            height="30"
-                                        />
+                                        {% include "partials/_user_avatar.html" with user=user classes="w-30px h-30px ms-1 rounded-circle" width=30 height=30 alt="profile" %}
                                         {% else %}
-                                        <img
-                                            class="w-30px h-30px ms-1 rounded-circle"
-                                            src="https://ui-avatars.com/api/?name=Guest&background=random"
-                                            alt="profile"
-                                            width="30"
-                                            height="30"
-                                        />
+                                        {% include "partials/_user_avatar.html" with name="Guest" fallback_name="Guest" classes="w-30px h-30px ms-1 rounded-circle" width=30 height=30 alt="profile" %}
                                         {% endif %}
                                     </a>
                                     <div class="dropdown-menu p-0" aria-labelledby="profileDropdown">

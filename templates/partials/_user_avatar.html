@@ -1,0 +1,33 @@
+{% comment %}
+Reusable user avatar snippet.
+Context variables:
+  - user: Django user instance (optional)
+  - name: explicit display name override (optional)
+  - fallback_name: fallback when user/name unavailable (default "Guest")
+  - size: avatar image size parameter (defaults to 40)
+  - width: rendered width attribute (defaults to size)
+  - height: rendered height attribute (defaults to size)
+  - classes: additional CSS classes (defaults to "rounded-circle")
+  - alt: alt text (defaults to "用户头像")
+{% endcomment %}
+{% with fallback=fallback_name|default:'Guest' %}
+{% with avatar_name=name|default:user.username|default:fallback %}
+{% with avatar_size=size|default:40 %}
+{% with avatar_width=width|default:avatar_size %}
+{% with avatar_height=height|default:avatar_size %}
+{% with avatar_classes=classes|default:'rounded-circle' %}
+{% with alt_text=alt|default:'用户头像' %}
+<img
+    src="https://ui-avatars.com/api/?name={{ avatar_name|urlencode }}&background=random{% if avatar_size %}&size={{ avatar_size }}{% endif %}"
+    alt="{{ alt_text }}"
+    class="{{ avatar_classes }}"
+    width="{{ avatar_width }}"
+    height="{{ avatar_height }}"
+/>
+{% endwith %}
+{% endwith %}
+{% endwith %}
+{% endwith %}
+{% endwith %}
+{% endwith %}
+{% endwith %}

@@ -1,7 +1,7 @@
 {% if user.is_authenticated %}
     <div class="d-flex flex-column align-items-center border-bottom px-5 py-3">
         <div class="mb-3">
-            <img class="w-80px h-80px rounded-circle" src="https://ui-avatars.com/api/?name={{ user.username }}&size=80&background=random" alt="用户头像" width="80" height="80">
+            {% include "partials/_user_avatar.html" with user=user size=80 width=80 height=80 classes="w-80px h-80px rounded-circle" %}
         </div>
         <div class="text-center">
             <p class="fs-16px fw-bolder">{{ user.username }}</p>
