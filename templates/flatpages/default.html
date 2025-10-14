@@ -1,0 +1,20 @@
+{% extends "horizontal_base.html" %}
+
+{% block title %}{{ flatpage.title }}{% endblock title %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+            <div class="d-flex align-items-center justify-content-between flex-wrap grid-margin">
+                <div>
+                    <h1 class="mb-0">{{ flatpage.title }}</h1>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body content">
+                    {{ flatpage.content|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}
