@@ -6,16 +6,17 @@ to ensure the views handle all possible scenarios correctly.
 """
 
 from datetime import date
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from social_django.models import UserSocialAuth
 
+from accounts import views as account_views
 from accounts.models import Education, UserProfile, WorkExperience
 from common.test_utils import CacheClearTestCase
 
@@ -83,6 +84,79 @@ class SignUpViewEdgeCaseTests(TestCase):
         response = self.client.post(reverse("accounts:sign_up"), data, follow=True)
         assert response.context["user"].is_authenticated
         assert response.context["user"].username == "newuser"
+
+
+class ProfileEditHelperTests(TestCase):
+    """Tests for helper functions within the profile edit workflow."""
+
+    def setUp(self):
+        """Create a user, profile, and request factory for helper tests."""
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username="helperuser",
+            email="helper@example.com",
+            password="testpass123",
+        )
+        self.profile = UserProfile.objects.create(user=self.user)
+
+    def test_get_profile_edit_forms_returns_bound_forms_for_post(self):
+        """POST requests should create bound forms and flag submission."""
+        request = self.factory.post(
+            "/accounts/profile/edit/",
+            data={"bio": "updated bio"},
+        )
+        work_factory = Mock(return_value="work_formset_post")
+        education_factory = Mock(return_value="education_formset_post")
+        mock_form_instance = Mock(name="profile_form_post")
+
+        with patch(
+            "accounts.views.ProfileForm", return_value=mock_form_instance
+        ) as mock_form:
+            form, work_formset, education_formset, is_post = (
+                account_views._get_profile_edit_forms(
+                    request,
+                    self.profile,
+                    work_factory,
+                    education_factory,
+                )
+            )
+
+        mock_form.assert_called_once_with(request.POST, instance=self.profile)
+        work_factory.assert_called_once_with(request.POST, instance=self.profile)
+        education_factory.assert_called_once_with(request.POST, instance=self.profile)
+
+        self.assertIs(form, mock_form_instance)
+        self.assertEqual(work_formset, "work_formset_post")
+        self.assertEqual(education_formset, "education_formset_post")
+        self.assertTrue(is_post)
+
+    def test_get_profile_edit_forms_returns_unbound_forms_for_get(self):
+        """GET requests should produce unbound forms and flag no submission."""
+        request = self.factory.get("/accounts/profile/edit/")
+        work_factory = Mock(return_value="work_formset_get")
+        education_factory = Mock(return_value="education_formset_get")
+        mock_form_instance = Mock(name="profile_form_get")
+
+        with patch(
+            "accounts.views.ProfileForm", return_value=mock_form_instance
+        ) as mock_form:
+            form, work_formset, education_formset, is_post = (
+                account_views._get_profile_edit_forms(
+                    request,
+                    self.profile,
+                    work_factory,
+                    education_factory,
+                )
+            )
+
+        mock_form.assert_called_once_with(instance=self.profile)
+        work_factory.assert_called_once_with(instance=self.profile)
+        education_factory.assert_called_once_with(instance=self.profile)
+
+        self.assertIs(form, mock_form_instance)
+        self.assertEqual(work_formset, "work_formset_get")
+        self.assertEqual(education_formset, "education_formset_get")
+        self.assertFalse(is_post)
 
 
 class ProfileEditViewEdgeCaseTests(TestCase):

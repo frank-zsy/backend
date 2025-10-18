@@ -1,8 +1,11 @@
 """Tests for homepage user search view."""
 
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import TestCase, override_settings
+from django.http import HttpResponse
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import UserProfile
@@ -21,6 +24,7 @@ class HomepageUserSearchTests(TestCase):
         """Create reusable users and related data."""
         self.User = get_user_model()
         self.search_url = reverse("homepage:search")
+        self.factory = RequestFactory()
 
         self.alice = self.User.objects.create_user(
             username="alice",
@@ -214,3 +218,31 @@ class HomepageUserSearchTests(TestCase):
         usernames = {item["username"] for item in refreshed_response.context["results"]}
         self.assertIn("charlie", usernames)
         cache.clear()
+
+    def test_cached_search_short_circuits_with_cached_context(self):
+        """When cached context exists the view should return it immediately."""
+        cached_context = {
+            "query": "example",
+            "results": [],
+            "results_count": 0,
+            "filters": {},
+        }
+        request = self.factory.get(self.search_url, {"q": "example"})
+
+        with (
+            patch("homepage.views.cache") as mock_cache,
+            patch("homepage.views.render") as mock_render,
+        ):
+            mock_cache.get.return_value = cached_context
+            mock_render.return_value = HttpResponse("cached")
+
+            response = homepage_views.user_search(request)
+
+        mock_cache.get.assert_called_once()
+        mock_cache.set.assert_not_called()
+        mock_render.assert_called_once_with(
+            request,
+            "homepage/search_results.html",
+            cached_context,
+        )
+        self.assertEqual(response, mock_render.return_value)

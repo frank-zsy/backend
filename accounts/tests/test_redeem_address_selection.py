@@ -74,6 +74,38 @@ class RedeemConfirmAddressSelectionTests(TestCase):
         self.assertContains(response, address1.phone)
         self.assertContains(response, address2.phone)
 
+    def test_shipping_item_without_addresses_redirects_to_guide(self):
+        """Users without addresses should be guided to create one."""
+        item = ShopItem.objects.create(
+            name="Physical Item",
+            description="Test",
+            cost=100,
+            requires_shipping=True,
+        )
+
+        grant_points(
+            user_profile=self.user,
+            points=200,
+            description="Test",
+            tag_names=["default"],
+        )
+
+        response = self.client.get(
+            reverse("accounts:redeem_confirm", args=[item.id]),
+            follow=True,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("accounts:shipping_address_create_guide", args=[item.id]),
+        )
+
+        if response.context and "messages" in response.context:
+            messages = [str(message) for message in response.context["messages"]]
+            self.assertTrue(
+                any("此商品需要收货地址" in message for message in messages)
+            )
+
     def test_default_address_is_preselected(self):
         """Test that default address is checked by default."""
         # Create shipping item
