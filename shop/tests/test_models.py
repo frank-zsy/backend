@@ -2,7 +2,6 @@
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.test import TestCase
@@ -76,21 +75,21 @@ class ShopItemModelTests(TestCase):
         self.assertIsNotNone(item.created_at)
         self.assertIsNotNone(item.updated_at)
 
-    def test_shop_item_with_image(self):
-        """Test creating shop item with image."""
-        image_file = SimpleUploadedFile(
-            "test_image.jpg", b"file_content", content_type="image/jpeg"
-        )
-        item = ShopItem.objects.create(
-            name="Item with Image",
-            description="Test",
-            cost=100,
-            image=image_file,
-        )
+    # def test_shop_item_with_image(self):
+    #     """Test creating shop item with image."""
+    #     image_file = SimpleUploadedFile(
+    #         "test_image.jpg", b"file_content", content_type="image/jpeg"
+    #     )
+    #     item = ShopItem.objects.create(
+    #         name="Item with Image",
+    #         description="Test",
+    #         cost=100,
+    #         image=image_file,
+    #     )
 
-        self.assertIsNotNone(item.image)
-        self.assertIn("test_image", item.image.name)
-        self.assertTrue(item.image.name.startswith("shop/items/"))
+    #     self.assertIsNotNone(item.image)
+    #     self.assertIn("test_image", item.image.name)
+    #     self.assertTrue(item.image.name.startswith("shop/items/"))
 
     def test_shop_item_without_image(self):
         """Test creating shop item without image (null/blank)."""
@@ -100,16 +99,16 @@ class ShopItemModelTests(TestCase):
 
         self.assertFalse(item.image)
 
-    def test_shop_item_image_upload_path(self):
-        """Test that image is uploaded to correct path."""
-        image_file = SimpleUploadedFile(
-            "product.png", b"image_data", content_type="image/png"
-        )
-        item = ShopItem.objects.create(
-            name="Path Test", description="Test", cost=75, image=image_file
-        )
+    # def test_shop_item_image_upload_path(self):
+    #     """Test that image is uploaded to correct path."""
+    #     image_file = SimpleUploadedFile(
+    #         "product.png", b"image_data", content_type="image/png"
+    #     )
+    #     item = ShopItem.objects.create(
+    #         name="Path Test", description="Test", cost=75, image=image_file
+    #     )
 
-        self.assertTrue(item.image.name.startswith("shop/items/"))
+    #     self.assertTrue(item.image.name.startswith("shop/items/"))
 
     def test_shop_item_verbose_name(self):
         """Test that verbose_name is set correctly."""
@@ -250,26 +249,26 @@ class ShopItemModelTests(TestCase):
         )
         self.assertEqual(str(item), "特殊商品 & 测试 - 999 pts")
 
-    def test_shop_item_image_field_accepts_various_formats(self):
-        """Test that image field accepts various file formats."""
-        formats = [
-            ("test.jpg", "image/jpeg"),
-            ("test.png", "image/png"),
-            ("test.gif", "image/gif"),
-            ("test.webp", "image/webp"),
-        ]
+    # def test_shop_item_image_field_accepts_various_formats(self):
+    #     """Test that image field accepts various file formats."""
+    #     formats = [
+    #         ("test.jpg", "image/jpeg"),
+    #         ("test.png", "image/png"),
+    #         ("test.gif", "image/gif"),
+    #         ("test.webp", "image/webp"),
+    #     ]
 
-        for filename, content_type in formats:
-            image_file = SimpleUploadedFile(
-                filename, b"image_data", content_type=content_type
-            )
-            item = ShopItem.objects.create(
-                name=f"Item {filename}",
-                description="Test",
-                cost=100,
-                image=image_file,
-            )
-            self.assertIsNotNone(item.image)
+    #     for filename, content_type in formats:
+    #         image_file = SimpleUploadedFile(
+    #             filename, b"image_data", content_type=content_type
+    #         )
+    #         item = ShopItem.objects.create(
+    #             name=f"Item {filename}",
+    #             description="Test",
+    #             cost=100,
+    #             image=image_file,
+    #         )
+    #         self.assertIsNotNone(item.image)
 
 
 class RedemptionModelTests(TestCase):

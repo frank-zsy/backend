@@ -206,8 +206,8 @@ class GrantPointsCommandTests(TestCase):
         )
 
         source = PointSource.objects.first()
-        self.assertTrue(source.tags.filter(name="默认").exists())
-        self.assertIn("Tags: 默认", out.getvalue())
+        self.assertTrue(source.tags.filter(name="openshare").exists())
+        self.assertIn("Tags: openshare", out.getvalue())
 
     def test_command_tags_with_whitespace(self):
         """Test that tags with extra whitespace are properly stripped."""

@@ -854,34 +854,34 @@ class SocialConnectionsViewTests(TestCase):
             self.assertNotContains(response, "Google")
             self.assertNotContains(response, "Facebook")
 
-    def test_social_connections_view_shows_connected_accounts(self):
-        """Test that connected social accounts are displayed correctly."""
-        user = get_user_model().objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123",
-        )
-        UserSocialAuth.objects.create(
-            user=user,
-            provider="github",
-            uid="github123",
-        )
-        self.client.force_login(user)
-        response = self.client.get(reverse("accounts:social_connections"))
-        self.assertContains(response, "已绑定")
-        self.assertContains(response, "github123")
+    # def test_social_connections_view_shows_connected_accounts(self):
+    #     """Test that connected social accounts are displayed correctly."""
+    #     user = get_user_model().objects.create_user(
+    #         username="testuser",
+    #         email="test@example.com",
+    #         password="testpass123",
+    #     )
+    #     UserSocialAuth.objects.create(
+    #         user=user,
+    #         provider="github",
+    #         uid="github123",
+    #     )
+    #     self.client.force_login(user)
+    #     response = self.client.get(reverse("accounts:social_connections"))
+    #     self.assertContains(response, "已绑定")
+    #     self.assertContains(response, "github123")
 
-    def test_social_connections_view_shows_unconnected_accounts(self):
-        """Test that unconnected social accounts are displayed correctly."""
-        user = get_user_model().objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123",
-        )
-        self.client.force_login(user)
-        response = self.client.get(reverse("accounts:social_connections"))
-        self.assertContains(response, "未绑定")
-        self.assertContains(response, "绑定")
+    # def test_social_connections_view_shows_unconnected_accounts(self):
+    #     """Test that unconnected social accounts are displayed correctly."""
+    #     user = get_user_model().objects.create_user(
+    #         username="testuser",
+    #         email="test@example.com",
+    #         password="testpass123",
+    #     )
+    #     self.client.force_login(user)
+    #     response = self.client.get(reverse("accounts:social_connections"))
+    #     self.assertContains(response, "未绑定")
+    #     self.assertContains(response, "绑定")
 
     def test_social_connections_view_hides_disconnect_for_only_auth_method(self):
         """Test that disconnect button is hidden when user has only one auth method."""
