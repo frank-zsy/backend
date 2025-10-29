@@ -5,7 +5,8 @@ FROM python:3.12-slim AS builder
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    UV_PYTHON_PREFERENCE=system
 
 WORKDIR /app
 
@@ -21,7 +22,7 @@ ENV PATH="/app/.venv/bin:${PATH}" \
 COPY . .
 
 RUN cp .env.example .env \
-    && uv run python manage.py collectstatic --noinput \
+    && python manage.py collectstatic --noinput \
     && rm .env
 
 
@@ -39,7 +40,10 @@ COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/manage.py /app/manage.py
 COPY --from=builder /app/config /app/config
 COPY --from=builder /app/accounts /app/accounts
+COPY --from=builder /app/chdb /app/chdb
+COPY --from=builder /app/common /app/common
 COPY --from=builder /app/homepage /app/homepage
+COPY --from=builder /app/messages /app/messages
 COPY --from=builder /app/points /app/points
 COPY --from=builder /app/shop /app/shop
 COPY --from=builder /app/static /app/static
