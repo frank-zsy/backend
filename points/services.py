@@ -2,13 +2,14 @@
 
 import logging
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import F, Q
 from django.utils.text import slugify
 
-from .models import PointSource, PointTransaction, Tag
+from .models import PointSource, PointTransaction, Tag, WithdrawalRequest
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -268,3 +269,255 @@ def _ensure_sufficient_balance(user, amount, current_balance, description):
         description,
     )
     raise InsufficientPointsError(msg)
+
+
+class WithdrawalError(Exception):
+    """提现相关错误的基类."""
+
+    pass
+
+
+class PointSourceNotWithdrawableError(WithdrawalError):
+    """当积分来源不支持提现时抛出此异常."""
+
+    pass
+
+
+class WithdrawalAmountError(WithdrawalError):
+    """当提现金额不合法时抛出此异常."""
+
+    pass
+
+
+@dataclass
+class WithdrawalData:
+    """提现申请数据."""
+
+    real_name: str
+    id_number: str
+    phone_number: str
+    bank_name: str
+    bank_account: str
+
+
+@transaction.atomic
+def create_withdrawal_request(
+    user: User,
+    point_source_id: int,
+    points: int,
+    withdrawal_data: WithdrawalData,
+) -> WithdrawalRequest:
+    """
+    创建提现申请.
+
+    这是一个原子操作.
+
+    Args:
+        user (User): 申请提现的用户。
+        point_source_id (int): 积分来源ID。
+        points (int): 提现积分数量。
+        withdrawal_data (WithdrawalData): 提现申请数据(姓名、身份证、银行信息等)。
+
+    Returns:
+        WithdrawalRequest: 新创建的提现申请对象。
+
+    Raises:
+        PointSource.DoesNotExist: 如果积分来源不存在。
+        PointSourceNotWithdrawableError: 如果积分来源不支持提现。
+        WithdrawalAmountError: 如果提现金额不合法。
+
+    """
+    # 1. 验证积分来源
+    try:
+        point_source = PointSource.objects.select_for_update().get(
+            id=point_source_id, user=user
+        )
+    except PointSource.DoesNotExist as e:
+        logger.warning(
+            "提现申请失败（积分来源不存在）: 用户=%s (ID=%s), 积分来源ID=%s",
+            user.username,
+            user.id,
+            point_source_id,
+        )
+        msg = "积分来源不存在或不属于您。"
+        raise PointSource.DoesNotExist(msg) from e
+
+    # 2. 验证是否可提现
+    if not point_source.is_withdrawable:
+        logger.warning(
+            "提现申请失败（积分来源不可提现）: 用户=%s (ID=%s), 积分来源ID=%s",
+            user.username,
+            user.id,
+            point_source_id,
+        )
+        msg = "该积分来源不支持提现。"
+        raise PointSourceNotWithdrawableError(msg)
+
+    # 3. 验证提现金额
+    if not isinstance(points, int) or points <= 0:
+        msg = "提现积分必须是正整数。"
+        raise WithdrawalAmountError(msg)
+
+    if points > point_source.remaining_points:
+        msg = f"提现积分不能超过剩余积分。剩余积分: {point_source.remaining_points}, 申请提现: {points}"
+        logger.warning(
+            "提现申请失败（积分不足）: 用户=%s (ID=%s), 剩余=%s, 申请=%s",
+            user.username,
+            user.id,
+            point_source.remaining_points,
+            points,
+        )
+        raise WithdrawalAmountError(msg)
+
+    # 4. 创建提现申请
+    withdrawal_request = WithdrawalRequest.objects.create(
+        user=user,
+        point_source=point_source,
+        points=points,
+        real_name=withdrawal_data.real_name,
+        id_number=withdrawal_data.id_number,
+        phone_number=withdrawal_data.phone_number,
+        bank_name=withdrawal_data.bank_name,
+        bank_account=withdrawal_data.bank_account,
+    )
+
+    logger.info(
+        "提现申请创建成功: 用户=%s (ID=%s), 积分=%s, 申请ID=%s",
+        user.username,
+        user.id,
+        points,
+        withdrawal_request.id,
+    )
+
+    return withdrawal_request
+
+
+@transaction.atomic
+def approve_withdrawal(
+    withdrawal_request: WithdrawalRequest, admin_user: User, admin_note: str = ""
+) -> PointTransaction:
+    """
+    批准提现申请并扣除相应积分.
+
+    这是一个原子操作.
+
+    Args:
+        withdrawal_request (WithdrawalRequest): 提现申请对象。
+        admin_user (User): 处理该申请的管理员。
+        admin_note (str, optional): 管理员备注。
+
+    Returns:
+        PointTransaction: 提现交易记录。
+
+    Raises:
+        WithdrawalError: 如果申请状态不是待处理。
+        InsufficientPointsError: 如果积分不足。
+
+    """
+    from django.utils import timezone
+
+    # 1. 验证申请状态
+    if withdrawal_request.status != WithdrawalRequest.Status.PENDING:
+        msg = f"只能批准待处理状态的申请。当前状态: {withdrawal_request.get_status_display()}"
+        raise WithdrawalError(msg)
+
+    # 2. 扣除积分（使用现有的 spend_points 服务）
+    transaction = spend_points(
+        user=withdrawal_request.user,
+        amount=withdrawal_request.points,
+        description=f"提现申请 #{withdrawal_request.id}",
+    )
+
+    # 3. 更新提现申请状态
+    withdrawal_request.status = WithdrawalRequest.Status.APPROVED
+    withdrawal_request.processed_by = admin_user
+    withdrawal_request.processed_at = timezone.now()
+    withdrawal_request.admin_note = admin_note
+    withdrawal_request.save()
+
+    # 4. 更新交易类型为提现
+    transaction.transaction_type = PointTransaction.TransactionType.WITHDRAW
+    transaction.save(update_fields=["transaction_type"])
+
+    logger.info(
+        "提现申请已批准: 申请ID=%s, 用户=%s (ID=%s), 积分=%s, 处理人=%s",
+        withdrawal_request.id,
+        withdrawal_request.user.username,
+        withdrawal_request.user.id,
+        withdrawal_request.points,
+        admin_user.username,
+    )
+
+    return transaction
+
+
+@transaction.atomic
+def reject_withdrawal(
+    withdrawal_request: WithdrawalRequest, admin_user: User, admin_note: str = ""
+):
+    """
+    拒绝提现申请.
+
+    Args:
+        withdrawal_request (WithdrawalRequest): 提现申请对象。
+        admin_user (User): 处理该申请的管理员。
+        admin_note (str, optional): 拒绝原因。
+
+    Raises:
+        WithdrawalError: 如果申请状态不是待处理。
+
+    """
+    from django.utils import timezone
+
+    # 验证申请状态
+    if withdrawal_request.status != WithdrawalRequest.Status.PENDING:
+        msg = f"只能拒绝待处理状态的申请。当前状态: {withdrawal_request.get_status_display()}"
+        raise WithdrawalError(msg)
+
+    # 更新申请状态
+    withdrawal_request.status = WithdrawalRequest.Status.REJECTED
+    withdrawal_request.processed_by = admin_user
+    withdrawal_request.processed_at = timezone.now()
+    withdrawal_request.admin_note = admin_note
+    withdrawal_request.save()
+
+    logger.info(
+        "提现申请已拒绝: 申请ID=%s, 用户=%s (ID=%s), 处理人=%s, 原因=%s",
+        withdrawal_request.id,
+        withdrawal_request.user.username,
+        withdrawal_request.user.id,
+        admin_user.username,
+        admin_note,
+    )
+
+
+@transaction.atomic
+def cancel_withdrawal(withdrawal_request: WithdrawalRequest):
+    """
+    用户取消提现申请.
+
+    Args:
+        withdrawal_request (WithdrawalRequest): 提现申请对象。
+
+    Raises:
+        WithdrawalError: 如果申请状态不是待处理。
+
+    """
+    from django.utils import timezone
+
+    # 验证申请状态
+    if withdrawal_request.status != WithdrawalRequest.Status.PENDING:
+        msg = f"只能取消待处理状态的申请。当前状态: {withdrawal_request.get_status_display()}"
+        raise WithdrawalError(msg)
+
+    # 更新申请状态
+    withdrawal_request.status = WithdrawalRequest.Status.CANCELLED
+    withdrawal_request.processed_at = timezone.now()
+    withdrawal_request.save()
+
+    logger.info(
+        "提现申请已取消: 申请ID=%s, 用户=%s (ID=%s)",
+        withdrawal_request.id,
+        withdrawal_request.user.username,
+        withdrawal_request.user.id,
+    )

@@ -1,0 +1,311 @@
+{% extends "horizontal_base.html" %}
+
+{% block title %}站内信{% endblock title %}
+
+{% block content %}
+    <style>
+        .message-icon-small {
+            width: 14px;
+            height: 14px;
+        }
+        .message-icon-medium {
+            width: 20px;
+            height: 20px;
+        }
+        .message-icon-large {
+            width: 64px;
+            height: 64px;
+        }
+        .message-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .message-row:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        .message-row.unread {
+            font-weight: 600;
+        }
+        .message-checkbox {
+            cursor: pointer;
+        }
+        .checkbox-column {
+            width: 40px;
+        }
+    </style>
+    <div class="d-flex justify-content-between align-items-center flex-wrap grid-margin">
+        <div>
+            <h4 class="mb-3 mb-md-0">站内信</h4>
+        </div>
+        <div class="d-flex align-items-center flex-wrap text-nowrap gap-2">
+            <span class="badge bg-primary">全部: {{ stats.total }}</span>
+            <span class="badge bg-warning">未读: {{ stats.unread }}</span>
+            <span class="badge bg-success">已读: {{ stats.read }}</span>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12 grid-margin stretch-card">
+            <div class="card">
+                <div class="card-body">
+                    <!-- 过滤器 -->
+                    <div class="mb-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                        <div class="d-flex flex-wrap gap-2">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'messages:list' %}"
+                                   class="btn btn-sm {% if current_status == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">全部</a>
+                                <a href="{% url 'messages:list' %}?status=unread"
+                                   class="btn btn-sm {% if current_status == 'unread' %}btn-primary{% else %}btn-outline-primary{% endif %}">未读</a>
+                                <a href="{% url 'messages:list' %}?status=read"
+                                   class="btn btn-sm {% if current_status == 'read' %}btn-primary{% else %}btn-outline-primary{% endif %}">已读</a>
+                            </div>
+                            <select class="form-select form-select-sm"
+                                    style="width: auto;"
+                                    onchange="window.location.href='{% url 'messages:list' %}?status={{ current_status }}&type=' + this.value">
+                                <option value="">所有类型</option>
+                                {% for type_value, type_label in message_types %}
+                                    <option value="{{ type_value }}"
+                                            {% if current_type == type_value %}selected{% endif %}>{{ type_label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-success"
+                                    onclick="markSelected('read')"
+                                    id="markReadBtn"
+                                    disabled>
+                                <i data-lucide="check" class="message-icon-small"></i> 标为已读
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning"
+                                    onclick="markSelected('unread')"
+                                    id="markUnreadBtn"
+                                    disabled>
+                                <i data-lucide="mail" class="message-icon-small"></i> 标为未读
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger"
+                                    onclick="deleteSelected()"
+                                    id="deleteBtn"
+                                    disabled>
+                                <i data-lucide="trash-2" class="message-icon-small"></i> 删除
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="markAllAsRead()">
+                                <i data-lucide="check-check" class="message-icon-small"></i> 全部已读
+                            </button>
+                        </div>
+                    </div>
+                    {% if page_obj %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th class="checkbox-column">
+                                            <input type="checkbox" class="form-check-input" id="selectAll">
+                                        </th>
+                                        <th>类型</th>
+                                        <th>标题</th>
+                                        <th>发送者</th>
+                                        <th>时间</th>
+                                        <th>状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user_message in page_obj %}
+                                        <tr class="message-row {% if not user_message.is_read %}unread{% endif %}"
+                                            onclick="viewMessage(event, {{ user_message.message.id }})">
+                                            <td onclick="event.stopPropagation()">
+                                                <input type="checkbox"
+                                                       class="form-check-input message-checkbox"
+                                                       name="message_ids[]"
+                                                       value="{{ user_message.message.id }}">
+                                            </td>
+                                            <td>
+                                                {% if user_message.message.message_type == "system" %}
+                                                    <span class="badge bg-info">系统</span>
+                                                {% elif user_message.message.message_type == "personal" %}
+                                                    <span class="badge bg-primary">个人</span>
+                                                {% elif user_message.message.message_type == "payment" %}
+                                                    <span class="badge bg-success">支付</span>
+                                                {% elif user_message.message.message_type == "shipping" %}
+                                                    <span class="badge bg-warning">发货</span>
+                                                {% elif user_message.message.message_type == "activity" %}
+                                                    <span class="badge bg-secondary">活动</span>
+                                                {% elif user_message.message.message_type == "announcement" %}
+                                                    <span class="badge bg-danger">公告</span>
+                                                {% elif user_message.message.message_type == "points" %}
+                                                    <span class="badge bg-success">积分</span>
+                                                {% elif user_message.message.message_type == "order" %}
+                                                    <span class="badge bg-info">订单</span>
+                                                {% elif user_message.message.message_type == "security" %}
+                                                    <span class="badge bg-danger">安全</span>
+                                                {% elif user_message.message.message_type == "withdrawal" %}
+                                                    <span class="badge bg-warning">提现</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {{ user_message.message.title }}
+                                                {% if not user_message.is_read %}
+                                                    <span class="badge bg-danger badge-pill ms-1">新</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if user_message.message.sender %}
+                                                    {{ user_message.message.sender.username }}
+                                                {% else %}
+                                                    <span class="text-muted">系统</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ user_message.created_at|date:"Y-m-d H:i" }}</td>
+                                            <td>
+                                                {% if user_message.is_read %}
+                                                    <i data-lucide="mail-open" class="text-muted message-icon-small"></i>
+                                                {% else %}
+                                                    <i data-lucide="mail" class="text-primary message-icon-small"></i>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- 分页 -->
+                        {% if page_obj.has_other_pages %}
+                            <nav>
+                                <ul class="pagination justify-content-center">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link"
+                                               href="?page={{ page_obj.previous_page_number }}&status={{ current_status }}{% if current_type %}&type={{ current_type }}{% endif %}">上一页</a>
+                                        </li>
+                                    {% endif %}
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link"
+                                                   href="?page={{ num }}&status={{ current_status }}{% if current_type %}&type={{ current_type }}{% endif %}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link"
+                                               href="?page={{ page_obj.next_page_number }}&status={{ current_status }}{% if current_type %}&type={{ current_type }}{% endif %}">下一页</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i data-lucide="inbox" class="text-muted mb-3 message-icon-large"></i>
+                            <h5 class="text-muted">暂无消息</h5>
+                            <p class="text-muted">您还没有收到任何消息</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // 全选/取消全选
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="message_ids[]"]');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateButtons();
+        });
+
+        // 更新按钮状态
+        document.querySelectorAll('input[name="message_ids[]"]').forEach(cb => {
+            cb.addEventListener('change', updateButtons);
+        });
+
+        function updateButtons() {
+            const selected = document.querySelectorAll('input[name="message_ids[]"]:checked');
+            const hasSelection = selected.length > 0;
+            document.getElementById('markReadBtn').disabled = !hasSelection;
+            document.getElementById('markUnreadBtn').disabled = !hasSelection;
+            document.getElementById('deleteBtn').disabled = !hasSelection;
+        }
+
+        // 查看消息
+        function viewMessage(event, messageId) {
+            if (event.target.type === 'checkbox') return;
+            window.location.href = '{% url 'messages:detail' 0 %}'.replace('0', messageId);
+        }
+
+        // 标记选中消息
+        function markSelected(action) {
+            const selected = Array.from(document.querySelectorAll('input[name="message_ids[]"]:checked'))
+                .map(cb => cb.value);
+            if (selected.length === 0) return;
+
+            const formData = new FormData();
+            selected.forEach(id => formData.append('message_ids[]', id));
+
+            const url = action === 'read' ? '{% url 'messages:mark_read' %}' : '{% url 'messages:mark_unread' %}';
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        }
+
+        // 删除选中消息
+        function deleteSelected() {
+            if (!confirm('确定要删除选中的消息吗？')) return;
+
+            const selected = Array.from(document.querySelectorAll('input[name="message_ids[]"]:checked'))
+                .map(cb => cb.value);
+            if (selected.length === 0) return;
+
+            const formData = new FormData();
+            selected.forEach(id => formData.append('message_ids[]', id));
+
+            fetch('{% url 'messages:delete' %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        }
+
+        // 全部标为已读
+        function markAllAsRead() {
+            if (!confirm('确定要将所有未读消息标为已读吗？')) return;
+
+            fetch('{% url 'messages:mark_read' %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        }
+    </script>
+{% endblock content %}

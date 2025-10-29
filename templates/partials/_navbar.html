@@ -1,4 +1,4 @@
-{% load static %}
+{% load static message_tags %}
 {% with nav_class=nav_class|default:'navbar top-navbar' %}
 <nav class="{{ nav_class }}">
     {% with container=container_class|default:'container' %}
@@ -70,23 +70,42 @@
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                         <i data-lucide="bell"></i>
-                        {% comment %}
+                        {% if user.is_authenticated %}
+                            {% unread_message_count as unread_count %}
+                            {% if unread_count > 0 %}
                         <div class="indicator">
                             <div class="circle"></div>
                         </div>
-                        {% endcomment %}
+                            {% endif %}
+                        {% endif %}
                     </a>
                     <div class="dropdown-menu p-0" aria-labelledby="notificationDropdown">
                         <div class="px-3 py-2 d-flex align-items-center justify-content-between border-bottom">
-                            <p>通知</p>
-                            <a href="javascript:;" class="text-secondary">全部标记已读</a>
+                            <p>站内信</p>
+                            {% if user.is_authenticated %}
+                            <a href="{% url 'messages:list' %}" class="text-secondary">查看全部</a>
+                            {% endif %}
                         </div>
                         <div class="p-1">
-                            <p class="text-center text-secondary py-3">暂无新通知</p>
+                            {% if user.is_authenticated %}
+                                {% unread_message_count as unread_count %}
+                                {% if unread_count > 0 %}
+                            <div class="text-center py-3">
+                                <p class="text-primary mb-2">您有 {{ unread_count }} 条未读消息</p>
+                                <a href="{% url 'messages:list' %}?status=unread" class="btn btn-sm btn-primary">立即查看</a>
+                            </div>
+                                {% else %}
+                            <p class="text-center text-secondary py-3">暂无新消息</p>
+                                {% endif %}
+                            {% else %}
+                            <p class="text-center text-secondary py-3">请先登录</p>
+                            {% endif %}
                         </div>
+                        {% if user.is_authenticated %}
                         <div class="px-3 py-2 d-flex align-items-center justify-content-center border-top">
-                            <a href="javascript:;">查看全部</a>
+                            <a href="{% url 'messages:list' %}">查看全部</a>
                         </div>
+                        {% endif %}
                     </div>
                 </li>
                 <li class="nav-item dropdown">

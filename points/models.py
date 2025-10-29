@@ -154,6 +154,77 @@ class PointSource(models.Model):
         return self.tags.filter(withdrawable=True).exists()
 
 
+class WithdrawalRequest(models.Model):
+    """提现申请模型, 记录用户的积分提现申请."""
+
+    class Status(models.TextChoices):
+        """提现状态枚举."""
+
+        PENDING = "PENDING", "待处理"
+        APPROVED = "APPROVED", "已批准"
+        REJECTED = "REJECTED", "已拒绝"
+        COMPLETED = "COMPLETED", "已完成"
+        CANCELLED = "CANCELLED", "已取消"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="withdrawal_requests",
+        verbose_name="用户",
+    )
+    point_source = models.ForeignKey(
+        PointSource,
+        on_delete=models.CASCADE,
+        related_name="withdrawal_requests",
+        verbose_name="积分来源",
+    )
+    points = models.PositiveIntegerField(verbose_name="提现积分数量")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="状态",
+        db_index=True,
+    )
+
+    # 提现人信息
+    real_name = models.CharField(max_length=100, verbose_name="真实姓名")
+    id_number = models.CharField(max_length=18, verbose_name="身份证号")
+    phone_number = models.CharField(max_length=11, verbose_name="手机号")
+
+    # 银行账户信息
+    bank_name = models.CharField(max_length=100, verbose_name="开户银行")
+    bank_account = models.CharField(max_length=50, verbose_name="银行账号")
+
+    # 审核信息
+    admin_note = models.TextField(blank=True, verbose_name="管理员备注")
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="processed_withdrawals",
+        verbose_name="处理人",
+    )
+    processed_at = models.DateTimeField(null=True, blank=True, verbose_name="处理时间")
+
+    created_at = models.DateTimeField(
+        auto_now_add=True, db_index=True, verbose_name="申请时间"
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        """模型元数据配置."""
+
+        ordering = ["-created_at"]
+        verbose_name = "提现申请"
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        """返回提现申请的字符串表示."""
+        return f"{self.user.username} - {self.points}积分 - {self.get_status_display()}"
+
+
 class PointTransaction(models.Model):
     """积分交易记录模型, 记录用户积分的获得和消费."""
 
@@ -162,6 +233,7 @@ class PointTransaction(models.Model):
 
         EARN = "EARN", "获得"
         SPEND = "SPEND", "消费"
+        WITHDRAW = "WITHDRAW", "提现"
         # ... other types
 
     user = models.ForeignKey(

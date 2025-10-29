@@ -1,6 +1,7 @@
 """ClickHouse 数据库连接和查询封装模块."""
 
 import logging
+import threading
 from typing import Any
 
 import clickhouse_connect
@@ -14,16 +15,22 @@ class ClickHouseDB:
     """
     ClickHouse 数据库封装类.
 
-    使用单例模式确保全局只有一个连接实例.
+    使用线程安全的单例模式确保全局只有一个连接实例.
     所有查询和命令都通过这个类进行.
     """
 
     _instance: Client | None = None
+    _lock = threading.Lock()
 
     @classmethod
     def get_instance(cls) -> Client:
         """
-        获取 ClickHouse 客户端单例实例.
+        获取 ClickHouse 客户端单例实例(线程安全).
+
+        使用双重检查锁定模式确保线程安全:
+        1. 第一次检查(无锁): 快速返回已存在的实例
+        2. 获取锁: 确保只有一个线程创建实例
+        3. 第二次检查(有锁): 防止多个线程同时创建实例
 
         Returns:
             Client: clickhouse-connect 客户端实例
@@ -32,44 +39,50 @@ class ClickHouseDB:
             Exception: 连接失败时抛出异常
 
         """
+        # 第一次检查（无锁）- 快速路径
         if cls._instance is None:
-            try:
-                cls._instance = clickhouse_connect.get_client(
-                    host=settings.CLICKHOUSE_HOST,
-                    port=settings.CLICKHOUSE_PORT,
-                    username=settings.CLICKHOUSE_USER,
-                    password=settings.CLICKHOUSE_PASSWORD,
-                    database=settings.CLICKHOUSE_DATABASE,
-                    secure=settings.CLICKHOUSE_SECURE,
-                )
-                logger.info(
-                    "ClickHouse 连接成功: %s:%s/%s",
-                    settings.CLICKHOUSE_HOST,
-                    settings.CLICKHOUSE_PORT,
-                    settings.CLICKHOUSE_DATABASE,
-                )
-            except Exception as e:
-                logger.error("ClickHouse 连接失败: %s", e)
-                raise
+            # 获取锁
+            with cls._lock:
+                # 第二次检查（有锁）- 防止竞态条件
+                if cls._instance is None:
+                    try:
+                        cls._instance = clickhouse_connect.get_client(
+                            host=settings.CLICKHOUSE_HOST,
+                            port=settings.CLICKHOUSE_PORT,
+                            username=settings.CLICKHOUSE_USER,
+                            password=settings.CLICKHOUSE_PASSWORD,
+                            database=settings.CLICKHOUSE_DATABASE,
+                            secure=settings.CLICKHOUSE_SECURE,
+                        )
+                        logger.info(
+                            "ClickHouse 连接成功: %s:%s/%s",
+                            settings.CLICKHOUSE_HOST,
+                            settings.CLICKHOUSE_PORT,
+                            settings.CLICKHOUSE_DATABASE,
+                        )
+                    except Exception as e:
+                        logger.error("ClickHouse 连接失败: %s", e)
+                        raise
 
         return cls._instance
 
     @classmethod
     def reset_connection(cls) -> None:
         """
-        重置连接.
+        重置连接(线程安全).
 
         关闭当前连接并清空实例, 下次调用 get_instance() 时会重新创建连接.
         用于测试或需要重新连接的场景.
         """
-        if cls._instance is not None:
-            try:
-                cls._instance.close()
-                logger.info("ClickHouse 连接已关闭")
-            except Exception as e:
-                logger.warning("关闭 ClickHouse 连接时出错: %s", e)
-            finally:
-                cls._instance = None
+        with cls._lock:
+            if cls._instance is not None:
+                try:
+                    cls._instance.close()
+                    logger.info("ClickHouse 连接已关闭")
+                except Exception as e:
+                    logger.warning("关闭 ClickHouse 连接时出错: %s", e)
+                finally:
+                    cls._instance = None
 
     @classmethod
     def query(

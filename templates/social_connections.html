@@ -57,7 +57,7 @@
                                             </button>
                                         {% endif %}
                                     {% else %}
-                                        <a href="{% url 'social:begin' connection.provider %}" class="btn btn-sm btn-primary btn-icon-text">
+                                        <a href="{% url 'social:begin' connection.provider %}?next={% url 'accounts:social_connections' %}" class="btn btn-sm btn-primary btn-icon-text">
                                             <i data-lucide="link" class="btn-icon-prepend"></i> 绑定
                                         </a>
                                     {% endif %}

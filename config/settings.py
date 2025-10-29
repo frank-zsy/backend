@@ -47,10 +47,14 @@ env = environ.Env(
     SOCIAL_AUTH_GITEA_KEY=(str, ""),
     SOCIAL_AUTH_GITEA_SECRET=(str, ""),
     SOCIAL_AUTH_GITEA_API_URL=(str, ""),
+    SOCIAL_AUTH_GITEE_KEY=(str, ""),
+    SOCIAL_AUTH_GITEE_SECRET=(str, ""),
     SOCIAL_AUTH_LINKEDIN_OAUTH2_KEY=(str, ""),
     SOCIAL_AUTH_LINKEDIN_OAUTH2_SECRET=(str, ""),
     SOCIAL_AUTH_TWITTER_OAUTH2_KEY=(str, ""),
     SOCIAL_AUTH_TWITTER_OAUTH2_SECRET=(str, ""),
+    SOCIAL_AUTH_HUGGINGFACE_KEY=(str, ""),
+    SOCIAL_AUTH_HUGGINGFACE_SECRET=(str, ""),
     MAILGUN_API_KEY=(str, "PLACEHOLDER_MAILGUN_API_KEY"),
     MAILGUN_SENDER_DOMAIN=(str, "PLACEHOLDER_MAILGUN_SENDER_DOMAIN"),
     REDIS_URL=(str, ""),
@@ -114,6 +118,7 @@ INSTALLED_APPS = [
     "points",
     "shop",
     "chdb",
+    "messages.apps.SiteMessagesConfig",
 ]
 
 MIDDLEWARE = [
@@ -219,8 +224,10 @@ AUTHENTICATION_BACKENDS = (
     "social_core.backends.facebook.FacebookOAuth2",
     "social_core.backends.gitlab.GitLabOAuth2",
     "social_core.backends.gitea.GiteaOAuth2",
+    "accounts.backends.GiteeOAuth2",
     "social_core.backends.linkedin.LinkedinOAuth2",
     "social_core.backends.twitter.TwitterOAuth",
+    "accounts.backends.HuggingFaceOAuth2",
     "social_core.backends.email.EmailAuth",
     "social_core.backends.username.UsernameAuth",
     "django.contrib.auth.backends.ModelBackend",
@@ -264,11 +271,17 @@ SOCIAL_AUTH_GITEA_KEY = env("SOCIAL_AUTH_GITEA_KEY")
 SOCIAL_AUTH_GITEA_SECRET = env("SOCIAL_AUTH_GITEA_SECRET")
 SOCIAL_AUTH_GITEA_API_URL = env("SOCIAL_AUTH_GITEA_API_URL")
 
+SOCIAL_AUTH_GITEE_KEY = env("SOCIAL_AUTH_GITEE_KEY")
+SOCIAL_AUTH_GITEE_SECRET = env("SOCIAL_AUTH_GITEE_SECRET")
+
 SOCIAL_AUTH_LINKEDIN_OAUTH2_KEY = env("SOCIAL_AUTH_LINKEDIN_OAUTH2_KEY")
 SOCIAL_AUTH_LINKEDIN_OAUTH2_SECRET = env("SOCIAL_AUTH_LINKEDIN_OAUTH2_SECRET")
 
 SOCIAL_AUTH_TWITTER_OAUTH2_KEY = env("SOCIAL_AUTH_TWITTER_OAUTH2_KEY")
 SOCIAL_AUTH_TWITTER_OAUTH2_SECRET = env("SOCIAL_AUTH_TWITTER_OAUTH2_SECRET")
+
+SOCIAL_AUTH_HUGGINGFACE_KEY = env("SOCIAL_AUTH_HUGGINGFACE_KEY")
+SOCIAL_AUTH_HUGGINGFACE_SECRET = env("SOCIAL_AUTH_HUGGINGFACE_SECRET")
 
 # Social Auth Pipeline
 # Custom pipeline to update user profile from social auth providers
@@ -437,3 +450,27 @@ if not TESTING:
         "debug_toolbar.middleware.DebugToolbarMiddleware",
         *MIDDLEWARE[gzip_index + 1 :],
     ]
+
+
+# security config
+if not DEBUG:
+    # HTTPS enforcement
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # HSTS
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # Content Security
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = "DENY"
+
+    # Session security
+    SESSION_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Strict"
+    CSRF_COOKIE_SAMESITE = "Strict"

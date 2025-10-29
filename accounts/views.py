@@ -236,6 +236,12 @@ def social_connections_view(request):
             "key": "SOCIAL_AUTH_GITEA_KEY",
             "secret": "SOCIAL_AUTH_GITEA_SECRET",
         },
+        "gitee": {
+            "name": "Gitee",
+            "icon": "git-branch",
+            "key": "SOCIAL_AUTH_GITEE_KEY",
+            "secret": "SOCIAL_AUTH_GITEE_SECRET",
+        },
         "linkedin-oauth2": {
             "name": "LinkedIn",
             "icon": "bi-linkedin",
@@ -247,6 +253,12 @@ def social_connections_view(request):
             "icon": "bi-twitter-x",
             "key": "SOCIAL_AUTH_TWITTER_OAUTH2_KEY",
             "secret": "SOCIAL_AUTH_TWITTER_OAUTH2_SECRET",
+        },
+        "huggingface": {
+            "name": "HuggingFace",
+            "icon": "brain",
+            "key": "SOCIAL_AUTH_HUGGINGFACE_KEY",
+            "secret": "SOCIAL_AUTH_HUGGINGFACE_SECRET",
         },
     }
 

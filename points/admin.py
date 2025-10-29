@@ -5,7 +5,8 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.utils.html import format_html
 
-from .models import PointSource, PointTransaction, Tag
+from .models import PointSource, PointTransaction, Tag, WithdrawalRequest
+from .services import approve_withdrawal, reject_withdrawal
 
 User = get_user_model()
 
@@ -206,3 +207,181 @@ class PointTransactionAdmin(admin.ModelAdmin):
         """Display count of consumed sources."""
         count = obj.consumed_sources.count()
         return count if count > 0 else "-"
+
+
+@admin.register(WithdrawalRequest)
+class WithdrawalRequestAdmin(admin.ModelAdmin):
+    """Admin for WithdrawalRequest model."""
+
+    list_display = (
+        "id",
+        "user",
+        "points",
+        "colored_status",
+        "real_name",
+        "phone_number",
+        "created_at",
+        "processed_at",
+        "processed_by",
+    )
+    list_filter = ("status", "created_at", "processed_at")
+    search_fields = (
+        "user__username",
+        "user__email",
+        "real_name",
+        "id_number",
+        "phone_number",
+        "bank_account",
+    )
+    readonly_fields = (
+        "user",
+        "point_source",
+        "points",
+        "real_name",
+        "id_number",
+        "phone_number",
+        "bank_name",
+        "bank_account",
+        "created_at",
+        "updated_at",
+        "processed_at",
+        "processed_by",
+    )
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+    actions = ["approve_selected", "reject_selected"]
+
+    fieldsets = (
+        (
+            "申请信息",
+            {
+                "fields": (
+                    "user",
+                    "point_source",
+                    "points",
+                    "status",
+                ),
+            },
+        ),
+        (
+            "个人信息",
+            {
+                "fields": (
+                    "real_name",
+                    "id_number",
+                    "phone_number",
+                ),
+            },
+        ),
+        (
+            "银行账户",
+            {
+                "fields": (
+                    "bank_name",
+                    "bank_account",
+                ),
+            },
+        ),
+        (
+            "处理信息",
+            {
+                "fields": (
+                    "admin_note",
+                    "processed_by",
+                    "processed_at",
+                ),
+            },
+        ),
+        (
+            "时间信息",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                ),
+            },
+        ),
+    )
+
+    @admin.display(description="状态")
+    def colored_status(self, obj):
+        """Display status with color."""
+        color_map = {
+            WithdrawalRequest.Status.PENDING: "orange",
+            WithdrawalRequest.Status.APPROVED: "blue",
+            WithdrawalRequest.Status.REJECTED: "red",
+            WithdrawalRequest.Status.COMPLETED: "green",
+            WithdrawalRequest.Status.CANCELLED: "gray",
+        }
+        color = color_map.get(obj.status, "black")
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            obj.get_status_display(),
+        )
+
+    @admin.action(description="批准选中的提现申请")
+    def approve_selected(self, request, queryset):
+        """Approve selected withdrawal requests."""
+        pending_requests = queryset.filter(status=WithdrawalRequest.Status.PENDING)
+        approved_count = 0
+        error_count = 0
+
+        for withdrawal in pending_requests:
+            try:
+                approve_withdrawal(withdrawal, request.user)
+                approved_count += 1
+            except Exception as e:
+                error_count += 1
+                self.message_user(
+                    request,
+                    f"批准申请 #{withdrawal.id} 失败: {e!s}",
+                    level="ERROR",
+                )
+
+        if approved_count > 0:
+            self.message_user(
+                request,
+                f"成功批准 {approved_count} 个提现申请。",
+                level="SUCCESS",
+            )
+
+        if error_count > 0:
+            self.message_user(
+                request,
+                f"{error_count} 个提现申请批准失败。",
+                level="WARNING",
+            )
+
+    @admin.action(description="拒绝选中的提现申请")
+    def reject_selected(self, request, queryset):
+        """Reject selected withdrawal requests."""
+        pending_requests = queryset.filter(status=WithdrawalRequest.Status.PENDING)
+        rejected_count = 0
+        error_count = 0
+
+        for withdrawal in pending_requests:
+            try:
+                reject_withdrawal(withdrawal, request.user, admin_note="管理员批量拒绝")
+                rejected_count += 1
+            except Exception as e:
+                error_count += 1
+                self.message_user(
+                    request,
+                    f"拒绝申请 #{withdrawal.id} 失败: {e!s}",
+                    level="ERROR",
+                )
+
+        if rejected_count > 0:
+            self.message_user(
+                request,
+                f"成功拒绝 {rejected_count} 个提现申请。",
+                level="SUCCESS",
+            )
+
+        if error_count > 0:
+            self.message_user(
+                request,
+                f"{error_count} 个提现申请拒绝失败。",
+                level="WARNING",
+            )
