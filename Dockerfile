@@ -14,7 +14,9 @@ RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --frozen --no-dev
+# Create virtual environment explicitly and sync dependencies
+RUN uv venv /app/.venv && \
+    uv sync --frozen --no-dev
 
 ENV PATH="/app/.venv/bin:${PATH}" \
     DJANGO_SETTINGS_MODULE="config.settings"
