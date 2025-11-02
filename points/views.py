@@ -274,3 +274,28 @@ def withdrawal_cancel(request, withdrawal_id):
 
     # If not POST, redirect to detail page
     return redirect("points:withdrawal_detail", withdrawal_id=withdrawal_id)
+
+
+@login_required
+def recharge(request, point_source_id):
+    """
+    Display recharge page for a specific point source.
+
+    Args:
+        request: HTTP request
+        point_source_id: ID of the point source to recharge
+
+    """
+    # Get the point source and verify it belongs to the user
+    point_source = get_object_or_404(PointSource, id=point_source_id, user=request.user)
+
+    # Check if the point source allows recharge (based on settings or tags)
+    if not point_source.is_rechargeable:
+        messages.error(request, "该积分池不支持充值。")
+        return redirect("points:my_points")
+
+    context = {
+        "point_source": point_source,
+    }
+
+    return render(request, "points/recharge.html", context)

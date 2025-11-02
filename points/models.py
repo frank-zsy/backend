@@ -80,6 +80,7 @@ class Tag(models.Model):
     description = models.TextField(blank=True, verbose_name="描述")
     is_default = models.BooleanField(default=False, verbose_name="是否为默认标签")
     withdrawable = models.BooleanField(default=False, verbose_name="是否可提现")
+    allow_recharge = models.BooleanField(default=False, verbose_name="允许充值")
 
     class Meta:
         """模型元数据配置."""
@@ -120,6 +121,7 @@ class PointSource(models.Model):
     expires_at = models.DateTimeField(
         null=True, blank=True, db_index=True, verbose_name="过期时间"
     )
+    allow_recharge = models.BooleanField(default=False, verbose_name="允许充值")
 
     notes = models.TextField(blank=True, verbose_name="备注")
 
@@ -152,6 +154,11 @@ class PointSource(models.Model):
     def is_withdrawable(self):
         """判断积分池是否可提现, 基于关联的标签."""
         return self.tags.filter(withdrawable=True).exists()
+
+    @property
+    def is_rechargeable(self):
+        """判断积分池是否可充值, 基于自身设置或关联的标签."""
+        return self.allow_recharge or self.tags.filter(allow_recharge=True).exists()
 
 
 class WithdrawalRequest(models.Model):

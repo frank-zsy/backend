@@ -121,6 +121,24 @@ class TagModelTests(TestCase):
 
         self.assertFalse(tag.withdrawable)
 
+    def test_tag_allow_recharge_field(self):
+        """Test allow_recharge field behavior."""
+        rechargeable_tag = Tag.objects.create(
+            name="rechargeable-tag", allow_recharge=True
+        )
+        non_rechargeable_tag = Tag.objects.create(
+            name="non-rechargeable-tag", allow_recharge=False
+        )
+
+        self.assertTrue(rechargeable_tag.allow_recharge)
+        self.assertFalse(non_rechargeable_tag.allow_recharge)
+
+    def test_tag_allow_recharge_defaults_to_false(self):
+        """Test that allow_recharge defaults to False."""
+        tag = Tag.objects.create(name="test-tag")
+
+        self.assertFalse(tag.allow_recharge)
+
 
 class PointSourceModelTests(TestCase):
     """Test cases for PointSource model."""
@@ -365,6 +383,121 @@ class PointSourceModelTests(TestCase):
         )
 
         self.assertFalse(source.is_withdrawable)
+
+    def test_point_source_allow_recharge_defaults_to_false(self):
+        """Test that allow_recharge defaults to False."""
+        source = PointSource.objects.create(
+            user_profile=self.user, initial_points=100, remaining_points=100
+        )
+
+        self.assertFalse(source.allow_recharge)
+
+    def test_point_source_allow_recharge_can_be_true(self):
+        """Test that allow_recharge can be set to True."""
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=True,
+        )
+
+        self.assertTrue(source.allow_recharge)
+
+    def test_point_source_allow_recharge_can_be_false(self):
+        """Test that allow_recharge can be explicitly set to False."""
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=False,
+        )
+
+        self.assertFalse(source.allow_recharge)
+
+    def test_point_source_is_rechargeable_with_allow_recharge_true(self):
+        """Test is_rechargeable returns True when allow_recharge is True."""
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=True,
+        )
+
+        self.assertTrue(source.is_rechargeable)
+
+    def test_point_source_is_rechargeable_with_rechargeable_tag(self):
+        """Test is_rechargeable returns True when source has rechargeable tag."""
+        rechargeable_tag = Tag.objects.create(
+            name="rechargeable-tag", allow_recharge=True
+        )
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=False,
+        )
+        source.tags.add(rechargeable_tag)
+
+        self.assertTrue(source.is_rechargeable)
+
+    def test_point_source_is_rechargeable_without_rechargeable_tag(self):
+        """Test is_rechargeable returns False when source has no rechargeable tags."""
+        non_rechargeable_tag = Tag.objects.create(
+            name="non-rechargeable-tag", allow_recharge=False
+        )
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=False,
+        )
+        source.tags.add(non_rechargeable_tag)
+
+        self.assertFalse(source.is_rechargeable)
+
+    def test_point_source_is_rechargeable_with_mixed_tags(self):
+        """Test is_rechargeable returns True when at least one tag is rechargeable."""
+        rechargeable_tag = Tag.objects.create(
+            name="rechargeable-tag", allow_recharge=True
+        )
+        non_rechargeable_tag = Tag.objects.create(
+            name="non-rechargeable-tag", allow_recharge=False
+        )
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=False,
+        )
+        source.tags.add(rechargeable_tag, non_rechargeable_tag)
+
+        self.assertTrue(source.is_rechargeable)
+
+    def test_point_source_is_rechargeable_with_no_tags(self):
+        """Test is_rechargeable returns False when source has no tags and allow_recharge is False."""
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=False,
+        )
+
+        self.assertFalse(source.is_rechargeable)
+
+    def test_point_source_is_rechargeable_with_both_true(self):
+        """Test is_rechargeable returns True when both allow_recharge and tag are set."""
+        rechargeable_tag = Tag.objects.create(
+            name="rechargeable-tag", allow_recharge=True
+        )
+        source = PointSource.objects.create(
+            user_profile=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=True,
+        )
+        source.tags.add(rechargeable_tag)
+
+        self.assertTrue(source.is_rechargeable)
 
 
 class PointTransactionModelTests(TestCase):

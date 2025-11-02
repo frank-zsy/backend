@@ -121,10 +121,16 @@
                                             </td>
                                             <td>
                                                 {% if source.is_withdrawable %}
-                                                    <a href="{% url 'points:withdrawal_create' source.id %}" class="btn btn-sm btn-success">
+                                                    <a href="{% url 'points:withdrawal_create' source.id %}" class="btn btn-sm btn-success me-1">
                                                         <i data-lucide="credit-card" class="icon-xs"></i> 提现
                                                     </a>
-                                                {% else %}
+                                                {% endif %}
+                                                {% if source.is_rechargeable %}
+                                                    <a href="{% url 'points:recharge' source.id %}" class="btn btn-sm btn-primary">
+                                                        <i data-lucide="plus-circle" class="icon-xs"></i> 充值
+                                                    </a>
+                                                {% endif %}
+                                                {% if not source.is_withdrawable and not source.is_rechargeable %}
                                                     <span class="text-muted">-</span>
                                                 {% endif %}
                                             </td>

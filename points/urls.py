@@ -25,4 +25,10 @@ urlpatterns = [
         views.withdrawal_cancel,
         name="withdrawal_cancel",
     ),
+    # Recharge URL
+    path(
+        "recharge/<int:point_source_id>/",
+        views.recharge,
+        name="recharge",
+    ),
 ]

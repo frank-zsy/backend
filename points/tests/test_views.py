@@ -498,3 +498,137 @@ class MyPointsViewTests(CacheClearTestCase):
 
         # Both tags should show the full 100 points (since the source has both)
         self.assertEqual(len(points_by_tag), 2)
+
+
+class RechargeViewTests(CacheClearTestCase):
+    """Test cases for recharge view."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.user = get_user_model().objects.create_user(
+            username="testuser", email="test@example.com", password="password123"
+        )
+        self.tag = Tag.objects.create(name="test_tag")
+
+    def test_view_requires_login(self):
+        """Test that view requires authentication."""
+        point_source = PointSource.objects.create(
+            user=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=True,
+        )
+        url = reverse("points:recharge", kwargs={"point_source_id": point_source.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+
+    def test_view_with_allow_recharge_true(self):
+        """Test that view displays recharge page when allow_recharge is True."""
+        self.client.login(username="testuser", password="password123")
+
+        point_source = PointSource.objects.create(
+            user=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=True,
+        )
+        point_source.tags.add(self.tag)
+
+        url = reverse("points:recharge", kwargs={"point_source_id": point_source.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "points/recharge.html")
+        self.assertEqual(response.context["point_source"], point_source)
+        self.assertContains(response, "暂不支持充值")
+
+    def test_view_with_rechargeable_tag(self):
+        """Test that view displays recharge page when tag has allow_recharge=True."""
+        self.client.login(username="testuser", password="password123")
+
+        rechargeable_tag = Tag.objects.create(
+            name="rechargeable-tag", allow_recharge=True
+        )
+        point_source = PointSource.objects.create(
+            user=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=False,
+        )
+        point_source.tags.add(rechargeable_tag)
+
+        url = reverse("points:recharge", kwargs={"point_source_id": point_source.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "points/recharge.html")
+        self.assertEqual(response.context["point_source"], point_source)
+        self.assertContains(response, "暂不支持充值")
+
+    def test_view_with_allow_recharge_false(self):
+        """Test that view redirects when allow_recharge is False and no rechargeable tags."""
+        self.client.login(username="testuser", password="password123")
+
+        point_source = PointSource.objects.create(
+            user=self.user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=False,
+        )
+
+        url = reverse("points:recharge", kwargs={"point_source_id": point_source.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("points:my_points"))
+
+    def test_view_with_nonexistent_point_source(self):
+        """Test that view returns 404 for nonexistent point source."""
+        self.client.login(username="testuser", password="password123")
+
+        url = reverse("points:recharge", kwargs={"point_source_id": 99999})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_view_with_other_users_point_source(self):
+        """Test that view returns 404 when accessing other user's point source."""
+        self.client.login(username="testuser", password="password123")
+
+        # Create another user and their point source
+        other_user = get_user_model().objects.create_user(
+            username="otheruser", email="other@example.com", password="password123"
+        )
+        point_source = PointSource.objects.create(
+            user=other_user,
+            initial_points=100,
+            remaining_points=100,
+            allow_recharge=True,
+        )
+
+        url = reverse("points:recharge", kwargs={"point_source_id": point_source.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_view_displays_point_source_information(self):
+        """Test that view displays correct point source information."""
+        self.client.login(username="testuser", password="password123")
+
+        point_source = PointSource.objects.create(
+            user=self.user,
+            initial_points=100,
+            remaining_points=75,
+            allow_recharge=True,
+        )
+        point_source.tags.add(self.tag)
+
+        url = reverse("points:recharge", kwargs={"point_source_id": point_source.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "100")  # Initial points
+        self.assertContains(response, "75")  # Remaining points
+        self.assertContains(response, "test_tag")  # Tag name

@@ -15,8 +15,15 @@ User = get_user_model()
 class TagAdmin(admin.ModelAdmin):
     """Admin for Tag model."""
 
-    list_display = ("name", "slug", "is_default", "withdrawable", "description_short")
-    list_filter = ("is_default", "withdrawable")
+    list_display = (
+        "name",
+        "slug",
+        "is_default",
+        "withdrawable",
+        "allow_recharge",
+        "description_short",
+    )
+    list_filter = ("is_default", "withdrawable", "allow_recharge")
     search_fields = ("name", "slug", "description")
     ordering = ("name",)
     readonly_fields = ("slug",)
@@ -75,8 +82,9 @@ class PointSourceAdmin(admin.ModelAdmin):
         "expires_at",
         "is_expired",
         "withdrawable_status",
+        "rechargeable_status",
     )
-    list_filter = ("created_at", "expires_at", "tags")
+    list_filter = ("created_at", "expires_at", "tags", "allow_recharge")
     search_fields = ("user__username", "user__email", "notes")
     filter_horizontal = ("tags",)
     readonly_fields = ("created_at",)
@@ -98,6 +106,12 @@ class PointSourceAdmin(admin.ModelAdmin):
             "标签和备注",
             {
                 "fields": ("tags", "notes"),
+            },
+        ),
+        (
+            "设置",
+            {
+                "fields": ("allow_recharge",),
             },
         ),
         (
@@ -138,6 +152,11 @@ class PointSourceAdmin(admin.ModelAdmin):
     def withdrawable_status(self, obj):
         """Display if points are withdrawable based on tags."""
         return obj.is_withdrawable
+
+    @admin.display(boolean=True, description="可充值")
+    def rechargeable_status(self, obj):
+        """Display if points are rechargeable based on settings or tags."""
+        return obj.is_rechargeable
 
 
 @admin.register(PointTransaction)
