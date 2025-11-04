@@ -8,13 +8,14 @@ from .views import (
     change_password_view,
     disconnect_social_account,
     logout_view,
+    organization_create,
     organization_detail,
     organization_list,
+    organization_member_add,
     organization_member_remove,
     organization_member_update_role,
     organization_members,
     organization_settings,
-    organization_sync,
     password_reset_confirm_view,
     password_reset_done_view,
     password_reset_request_view,
@@ -103,11 +104,7 @@ urlpatterns = [
     ),
     # Organization URLs
     path("organizations/", organization_list, name="organization_list"),
-    path(
-        "organizations/sync/<str:provider>/",
-        organization_sync,
-        name="organization_sync",
-    ),
+    path("organizations/create/", organization_create, name="organization_create"),
     path("organizations/<slug:slug>/", organization_detail, name="organization_detail"),
     path(
         "organizations/<slug:slug>/settings/",
@@ -118,6 +115,11 @@ urlpatterns = [
         "organizations/<slug:slug>/members/",
         organization_members,
         name="organization_members",
+    ),
+    path(
+        "organizations/<slug:slug>/members/add/",
+        organization_member_add,
+        name="organization_member_add",
     ),
     path(
         "organizations/<slug:slug>/members/<int:member_id>/update-role/",

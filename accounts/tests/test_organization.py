@@ -24,55 +24,26 @@ class OrganizationModelTests(TestCase):
             name="Test Organization",
             slug="test-org",
             description="A test organization",
-            provider="github",
-            provider_id="123456",
-            provider_login="test-org",
         )
 
         self.assertEqual(org.name, "Test Organization")
         self.assertEqual(org.slug, "test-org")
-        self.assertEqual(org.provider, "github")
+        self.assertEqual(org.description, "A test organization")
         self.assertEqual(str(org), "Test Organization")
 
-    def test_organization_unique_provider_id(self):
-        """Test that provider+provider_id combination is unique."""
+    def test_organization_unique_slug(self):
+        """Test that slug is unique."""
         Organization.objects.create(
             name="Org 1",
-            slug="org-1",
-            provider="github",
-            provider_id="123",
-            provider_login="org1",
+            slug="test-org",
         )
 
-        # Creating another org with same provider+provider_id should fail
+        # Creating another org with same slug should fail
         with self.assertRaises(IntegrityError):
             Organization.objects.create(
                 name="Org 2",
-                slug="org-2",
-                provider="github",
-                provider_id="123",
-                provider_login="org2",
+                slug="test-org",
             )
-
-    def test_organization_different_providers_same_id(self):
-        """Test that same provider_id is allowed for different providers."""
-        org1 = Organization.objects.create(
-            name="GitHub Org",
-            slug="github-org",
-            provider="github",
-            provider_id="123",
-            provider_login="github-org",
-        )
-
-        org2 = Organization.objects.create(
-            name="Gitee Org",
-            slug="gitee-org",
-            provider="gitee",
-            provider_id="123",
-            provider_login="gitee-org",
-        )
-
-        self.assertNotEqual(org1.id, org2.id)
 
 
 class OrganizationMembershipModelTests(TestCase):
@@ -86,9 +57,6 @@ class OrganizationMembershipModelTests(TestCase):
         self.org = Organization.objects.create(
             name="Test Organization",
             slug="test-org",
-            provider="github",
-            provider_id="123456",
-            provider_login="test-org",
         )
 
     def test_membership_creation(self):
@@ -184,9 +152,6 @@ class OrganizationMembershipModelTests(TestCase):
         org2 = Organization.objects.create(
             name="Org 2",
             slug="org-2",
-            provider="github",
-            provider_id="789",
-            provider_login="org-2",
         )
 
         OrganizationMembership.objects.create(

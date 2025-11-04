@@ -230,13 +230,11 @@ class OrganizationAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "slug",
-        "provider",
-        "provider_login",
         "member_count",
         "created_at",
     )
-    list_filter = ("provider", "created_at")
-    search_fields = ("name", "slug", "provider_login", "description")
+    list_filter = ("created_at",)
+    search_fields = ("name", "slug", "description")
     readonly_fields = ("created_at", "updated_at")
     ordering = ("-created_at",)
     date_hierarchy = "created_at"
@@ -247,19 +245,13 @@ class OrganizationAdmin(admin.ModelAdmin):
         (
             "基本信息",
             {
-                "fields": ("name", "slug", "description", "avatar_url"),
+                "fields": ("name", "slug", "description", "avatar"),
             },
         ),
         (
             "联系信息",
             {
                 "fields": ("website", "location"),
-            },
-        ),
-        (
-            "OAuth提供商信息",
-            {
-                "fields": ("provider", "provider_id", "provider_login"),
             },
         ),
         (

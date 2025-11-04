@@ -1,26 +1,17 @@
 {% extends "horizontal_base.html" %}
 {% load static %}
 
-{% block title %}{{ organization.name }} - 设置{% endblock title %}
-
-{% block extra_css %}
-    <style>
-        .org-avatar-preview {
-            max-width: 120px;
-            max-height: 120px;
-        }
-    </style>
-{% endblock extra_css %}
+{% block title %}创建组织{% endblock title %}
 
 {% block content %}
     <div class="d-flex justify-content-between align-items-center flex-wrap grid-margin">
         <div>
-            <h4 class="mb-3 mb-md-0">组织设置</h4>
-            <p class="text-muted">管理 {{ organization.name }} 的基本信息</p>
+            <h4 class="mb-3 mb-md-0">创建组织</h4>
+            <p class="text-muted">创建一个新的组织</p>
         </div>
         <div class="d-flex align-items-center flex-wrap text-nowrap">
-            <a href="{% url 'accounts:organization_detail' organization.slug %}" class="btn btn-outline-secondary btn-icon-text mb-2 mb-md-0">
-                <i data-lucide="arrow-left" class="btn-icon-prepend"></i> 返回详情
+            <a href="{% url 'accounts:organization_list' %}" class="btn btn-outline-secondary btn-icon-text mb-2 mb-md-0">
+                <i data-lucide="arrow-left" class="btn-icon-prepend"></i> 返回列表
             </a>
         </div>
     </div>
@@ -29,7 +20,7 @@
             <div class="card">
                 <div class="card-body">
                     <h6 class="card-title mb-4">
-                        <i data-lucide="settings" class="icon-sm"></i> 基本信息
+                        <i data-lucide="building" class="icon-sm"></i> 基本信息
                     </h6>
                     <form method="post" action="" enctype="multipart/form-data">
                         {% csrf_token %}
@@ -90,25 +81,6 @@
                         <div class="row mb-3">
                             <label for="id_avatar" class="col-sm-3 col-form-label">头像</label>
                             <div class="col-sm-9">
-                                {% if organization.avatar %}
-                                    <div class="mb-2">
-                                        <img src="{{ organization.avatar.url }}"
-                                             alt="{{ organization.name }}"
-                                             class="rounded org-avatar-preview"
-                                             width="120"
-                                             height="120" />
-                                    </div>
-                                    <div class="form-check mb-2">
-                                        <input type="checkbox"
-                                               class="form-check-input"
-                                               id="remove_avatar"
-                                               name="remove_avatar"
-                                               value="1" />
-                                        <label class="form-check-label" for="remove_avatar">
-                                            删除当前头像
-                                        </label>
-                                    </div>
-                                {% endif %}
                                 <input type="file"
                                        class="form-control {% if form.errors.avatar %}is-invalid{% endif %}"
                                        id="id_avatar"
@@ -157,9 +129,9 @@
                         <div class="row">
                             <div class="col-sm-9 offset-sm-3">
                                 <button type="submit" class="btn btn-primary me-2">
-                                    <i data-lucide="save" class="btn-icon-prepend"></i> 保存更改
+                                    <i data-lucide="plus" class="btn-icon-prepend"></i> 创建组织
                                 </button>
-                                <a href="{% url 'accounts:organization_detail' organization.slug %}" class="btn btn-secondary">
+                                <a href="{% url 'accounts:organization_list' %}" class="btn btn-secondary">
                                     取消
                                 </a>
                             </div>

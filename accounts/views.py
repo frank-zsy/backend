@@ -1,7 +1,5 @@
 """Views for user authentication and profile management."""
 
-from urllib.parse import urlencode
-
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -9,7 +7,6 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied
 from django.forms import inlineformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from social_django.models import UserSocialAuth
@@ -746,72 +743,99 @@ def organization_list(request):
         org.user_membership = membership
         organizations.append(org)
 
-    # Get user's connected social accounts that support organization sync
-    social_accounts = UserSocialAuth.objects.filter(
-        user=request.user, provider__in=["github", "gitee", "huggingface"]
-    ).values_list("provider", flat=True)
-
     context = {
         "organizations": organizations,
-        "social_accounts": list(social_accounts),
     }
 
     return render(request, "accounts/organization_list.html", context)
 
 
 @login_required
-def organization_sync(request, provider):
+def organization_create(request):
     """
-    Trigger organization sync with OAuth re-authorization.
-
-    This view forces a fresh OAuth authorization to ensure users can grant
-    organization access permissions. For GitHub, this will show the organization
-    authorization screen where users can grant access to their organizations.
+    Create a new organization.
 
     Args:
         request: HTTP request
-        provider: OAuth provider name (github, gitee, huggingface)
 
     """
-    # Validate provider
-    if provider not in ["github", "gitee", "huggingface"]:
-        messages.error(request, "不支持的 OAuth 提供商。")
-        return redirect("accounts:organization_list")
+    form_data = None
+    if request.method == "POST":
+        # Create a dict with form data for validation
+        form_data = {
+            "name": request.POST.get("name", "").strip(),
+            "slug": request.POST.get("slug", "").strip(),
+            "description": request.POST.get("description", "").strip(),
+            "website": request.POST.get("website", "").strip(),
+            "location": request.POST.get("location", "").strip(),
+            "avatar": request.FILES.get("avatar"),
+        }
 
-    # Check if user has connected this provider
-    social = UserSocialAuth.objects.filter(user=request.user, provider=provider).first()
-    if not social:
-        messages.error(request, f"您还未连接 {provider.title()} 账号。")
-        return redirect("accounts:social_connections")
+        # Validate required fields
+        errors = {}
+        if not form_data["name"]:
+            errors["name"] = "组织名称不能为空。"
+        if not form_data["slug"]:
+            errors["slug"] = "URL 别名不能为空。"
 
-    # Store sync flag in session
-    request.session["is_organization_sync"] = True
-    request.session.modified = True
+        # Check slug uniqueness
+        if form_data["slug"]:
+            existing = Organization.objects.filter(slug=form_data["slug"]).first()
+            if existing:
+                errors["slug"] = "URL 别名已存在。"
 
-    # Build OAuth URL with parameters
+        # Validate slug format (alphanumeric, hyphens, underscores only)
+        if form_data["slug"]:
+            import re
 
-    # Get the OAuth begin URL
-    oauth_url = reverse("social:begin", args=[provider])
+            if not re.match(r"^[a-zA-Z0-9_-]+$", form_data["slug"]):
+                errors["slug"] = "URL 别名只能包含字母、数字、连字符和下划线。"
 
-    # Add parameters to control OAuth flow
-    params = {
-        "next": reverse("accounts:organization_list"),
+        if not errors:
+            # Create organization
+            organization = Organization.objects.create(
+                name=form_data["name"],
+                slug=form_data["slug"],
+                description=form_data["description"],
+                website=form_data["website"],
+                location=form_data["location"],
+            )
+
+            # Handle avatar upload
+            if form_data["avatar"]:
+                organization.avatar = form_data["avatar"]
+                organization.save()
+
+            # Add creator as owner
+            OrganizationMembership.objects.create(
+                user=request.user,
+                organization=organization,
+                role=OrganizationMembership.Role.OWNER,
+            )
+
+            messages.success(request, f"组织 {organization.name} 创建成功！")
+            return redirect("accounts:organization_detail", slug=organization.slug)
+        else:
+            # Pass errors to template
+            form_data["errors"] = errors
+
+    # Prepare form data for GET request or failed POST
+    if not form_data:
+        form_data = {
+            "name": "",
+            "slug": "",
+            "description": "",
+            "website": "",
+            "location": "",
+        }
+
+    context = {
+        "form": type(
+            "obj", (object,), form_data
+        ),  # Create a simple object with form data
     }
 
-    # For GitHub, disconnect and reconnect to force fresh authorization
-    # This ensures the organization authorization screen is shown
-    if provider == "github":
-        # GitHub requires users to manually authorize organization access
-        # on their first authorization or when reconnecting
-        messages.info(
-            request,
-            "即将重定向到 GitHub 授权页面。请在授权页面中点击「Organization access」部分的「Grant」或「Request」按钮，以授权访问您的组织数据。",
-        )
-
-    # Redirect to OAuth with parameters
-    oauth_url = f"{oauth_url}?{urlencode(params)}"
-
-    return redirect(oauth_url)
+    return render(request, "accounts/organization_create.html", context)
 
 
 @login_required
@@ -852,6 +876,56 @@ def organization_detail(request, slug):
     return render(request, "accounts/organization_detail.html", context)
 
 
+def _validate_organization_settings(form_data, organization):
+    """
+    Validate organization settings form data.
+
+    Args:
+        form_data: Dictionary with form data
+        organization: Organization instance for slug uniqueness check
+
+    Returns:
+        Dictionary of errors (empty if valid)
+
+    """
+    errors = {}
+    if not form_data["name"]:
+        errors["name"] = "组织名称不能为空。"
+    if not form_data["slug"]:
+        errors["slug"] = "URL 别名不能为空。"
+
+    # Check slug uniqueness
+    if form_data["slug"]:
+        existing = (
+            Organization.objects.filter(slug=form_data["slug"])
+            .exclude(id=organization.id)
+            .first()
+        )
+        if existing:
+            errors["slug"] = "URL 别名已存在。"
+
+    return errors
+
+
+def _handle_organization_avatar(organization, form_data):
+    """
+    Handle organization avatar upload or removal.
+
+    Args:
+        organization: Organization instance
+        form_data: Dictionary with form data including avatar/remove_avatar
+
+    """
+    if form_data["remove_avatar"]:
+        organization.avatar.delete(save=False)
+        organization.avatar = None
+    elif form_data["avatar"]:
+        # Delete old avatar if exists
+        if organization.avatar:
+            organization.avatar.delete(save=False)
+        organization.avatar = form_data["avatar"]
+
+
 @login_required
 def organization_settings(request, slug):
     """
@@ -884,43 +958,33 @@ def organization_settings(request, slug):
             "name": request.POST.get("name", "").strip(),
             "slug": request.POST.get("slug", "").strip(),
             "description": request.POST.get("description", "").strip(),
-            "avatar_url": request.POST.get("avatar_url", "").strip(),
             "website": request.POST.get("website", "").strip(),
             "location": request.POST.get("location", "").strip(),
+            "avatar": request.FILES.get("avatar"),
+            "remove_avatar": request.POST.get("remove_avatar") == "1",
         }
 
-        # Validate required fields
-        errors = {}
-        if not form_data["name"]:
-            errors["name"] = "组织名称不能为空。"
-        if not form_data["slug"]:
-            errors["slug"] = "URL 别名不能为空。"
-
-        # Check slug uniqueness
-        if form_data["slug"]:
-            existing = (
-                Organization.objects.filter(slug=form_data["slug"])
-                .exclude(id=organization.id)
-                .first()
-            )
-            if existing:
-                errors["slug"] = "URL 别名已存在。"
+        # Validate form data
+        errors = _validate_organization_settings(form_data, organization)
 
         if not errors:
             # Update organization settings
             organization.name = form_data["name"]
             organization.slug = form_data["slug"]
             organization.description = form_data["description"]
-            organization.avatar_url = form_data["avatar_url"]
             organization.website = form_data["website"]
             organization.location = form_data["location"]
+
+            # Handle avatar upload or removal
+            _handle_organization_avatar(organization, form_data)
+
             organization.save()
 
             messages.success(request, "组织设置已更新。")
             return redirect("accounts:organization_settings", slug=organization.slug)
-        else:
-            # Pass errors to template
-            form_data["errors"] = errors
+
+        # Pass errors to template
+        form_data["errors"] = errors
 
     # Prepare form data for GET request or failed POST
     if not form_data:
@@ -928,7 +992,6 @@ def organization_settings(request, slug):
             "name": organization.name,
             "slug": organization.slug,
             "description": organization.description or "",
-            "avatar_url": organization.avatar_url or "",
             "website": organization.website or "",
             "location": organization.location or "",
         }
@@ -987,6 +1050,68 @@ def organization_members(request, slug):
     }
 
     return render(request, "accounts/organization_members.html", context)
+
+
+@login_required
+def organization_member_add(request, slug):
+    """
+    Add a new member to organization (admin only).
+
+    Args:
+        request: HTTP request
+        slug: Organization slug
+
+    """
+    User = get_user_model()
+    organization = get_object_or_404(Organization, slug=slug)
+
+    # Check if user is admin/owner
+    try:
+        membership = OrganizationMembership.objects.get(
+            user=request.user, organization=organization
+        )
+    except OrganizationMembership.DoesNotExist:
+        msg = "您不是该组织的成员。"
+        raise PermissionDenied(msg) from None
+
+    if not membership.is_admin_or_owner():
+        msg = "您没有权限执行该操作。"
+        raise PermissionDenied(msg)
+
+    if request.method != "POST":
+        return redirect("accounts:organization_members", slug=slug)
+
+    # Get username and role from form
+    username = request.POST.get("username", "").strip()
+    role = request.POST.get("role", OrganizationMembership.Role.MEMBER)
+
+    # Validate role
+    valid_roles = [choice[0] for choice in OrganizationMembership.Role.choices]
+    if role not in valid_roles:
+        messages.error(request, "无效的角色。")
+        return redirect("accounts:organization_members", slug=slug)
+
+    # Find user by username
+    try:
+        user_to_add = User.objects.get(username=username)
+    except User.DoesNotExist:
+        messages.error(request, f"用户 {username} 不存在。")
+        return redirect("accounts:organization_members", slug=slug)
+
+    # Check if user is already a member
+    if OrganizationMembership.objects.filter(
+        user=user_to_add, organization=organization
+    ).exists():
+        messages.error(request, f"用户 {username} 已经是组织成员。")
+        return redirect("accounts:organization_members", slug=slug)
+
+    # Add user to organization
+    OrganizationMembership.objects.create(
+        user=user_to_add, organization=organization, role=role
+    )
+
+    messages.success(request, f"成功将 {username} 添加为组织成员。")
+    return redirect("accounts:organization_members", slug=slug)
 
 
 @login_required

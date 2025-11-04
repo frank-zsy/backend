@@ -32,6 +32,49 @@
             </a>
         </div>
     </div>
+    <!-- Add Member Section -->
+    <div class="row">
+        <div class="col-12 grid-margin stretch-card">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title mb-4">
+                        <i data-lucide="user-plus" class="icon-sm"></i> 添加成员
+                    </h6>
+                    <form method="post" action="{% url 'accounts:organization_member_add' organization.slug %}">
+                        {% csrf_token %}
+                        <div class="row align-items-end">
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <label for="username" class="form-label">用户名 *</label>
+                                <input type="text"
+                                       class="form-control"
+                                       id="username"
+                                       name="username"
+                                       placeholder="输入要添加的用户名"
+                                       required />
+                                <small class="form-text text-muted">输入现有用户的用户名</small>
+                            </div>
+                            <div class="col-md-3 mb-3 mb-md-0">
+                                <label for="role" class="form-label">角色 *</label>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option value="member">普通成员</option>
+                                    <option value="admin">管理员</option>
+                                    <option value="owner">所有者</option>
+                                </select>
+                                <small class="form-text text-muted">组织至少有一个所有者</small>
+                            </div>
+                            <div class="col-md-3 mb-3 mb-md-0">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i data-lucide="user-plus" class="btn-icon-prepend"></i> 添加成员
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Member List Section -->
     <div class="row">
         <div class="col-12 grid-margin stretch-card">
             <div class="card">

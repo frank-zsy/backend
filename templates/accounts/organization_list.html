@@ -29,39 +29,9 @@
             <h4 class="mb-3 mb-md-0">我的组织</h4>
         </div>
         <div class="d-flex align-items-center flex-wrap text-nowrap gap-2">
-            {% if social_accounts %}
-                <div class="btn-group mb-2 mb-md-0" role="group">
-                    <button type="button"
-                            class="btn btn-primary btn-icon-text dropdown-toggle"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false">
-                        <i data-lucide="refresh-cw" class="btn-icon-prepend"></i> 同步组织
-                    </button>
-                    <ul class="dropdown-menu">
-                        {% if 'github' in social_accounts %}
-                            <li>
-                                <a class="dropdown-item" href="{% url 'accounts:organization_sync' 'github' %}">
-                                    <i data-lucide="github" class="icon-xs me-2"></i> 从 GitHub 同步
-                                </a>
-                            </li>
-                        {% endif %}
-                        {% if 'gitee' in social_accounts %}
-                            <li>
-                                <a class="dropdown-item" href="{% url 'accounts:organization_sync' 'gitee' %}">
-                                    <i data-lucide="git-branch" class="icon-xs me-2"></i> 从 Gitee 同步
-                                </a>
-                            </li>
-                        {% endif %}
-                        {% if 'huggingface' in social_accounts %}
-                            <li>
-                                <a class="dropdown-item" href="{% url 'accounts:organization_sync' 'huggingface' %}">
-                                    <i data-lucide="sparkles" class="icon-xs me-2"></i> 从 HuggingFace 同步
-                                </a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </div>
-            {% endif %}
+            <a href="{% url 'accounts:organization_create' %}" class="btn btn-primary btn-icon-text mb-2 mb-md-0">
+                <i data-lucide="plus" class="btn-icon-prepend"></i> 创建组织
+            </a>
             <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary btn-icon-text mb-2 mb-md-0">
                 <i data-lucide="arrow-left" class="btn-icon-prepend"></i> 返回个人中心
             </a>
@@ -74,8 +44,8 @@
                     <div class="card">
                         <div class="card-body">
                             <div class="d-flex align-items-center mb-3">
-                                {% if org.avatar_url %}
-                                    <img src="{{ org.avatar_url }}"
+                                {% if org.avatar %}
+                                    <img src="{{ org.avatar.url }}"
                                          alt="{{ org.name }}"
                                          class="rounded me-3 org-avatar-md"
                                          width="60"
@@ -96,9 +66,6 @@
                                 <p class="text-muted mb-3">{{ org.description|truncatewords:20 }}</p>
                             {% endif %}
                             <div class="d-flex flex-wrap gap-2 mb-3">
-                                <span class="badge bg-info">
-                                    <i data-lucide="git-branch" class="icon-xs"></i> {{ org.get_provider_display }}
-                                </span>
                                 <span class="badge bg-secondary">
                                     <i data-lucide="users" class="icon-xs"></i> {{ org.memberships.count }} 成员
                                 </span>
@@ -141,10 +108,12 @@
                     <div class="card-body text-center py-5">
                         <i data-lucide="building" class="icon-lg text-muted mb-3 icon-xl"></i>
                         <h5 class="text-muted mb-3">暂无组织</h5>
-                        <p class="text-muted">
-                            您还没有加入任何组织。<br />
-                            当您通过 GitHub、Gitee 或 HuggingFace 登录时，系统会自动同步您的组织信息。
+                        <p class="text-muted mb-3">
+                            您还没有加入任何组织。
                         </p>
+                        <a href="{% url 'accounts:organization_create' %}" class="btn btn-primary">
+                            <i data-lucide="plus" class="btn-icon-prepend"></i> 创建组织
+                        </a>
                     </div>
                 </div>
             </div>
