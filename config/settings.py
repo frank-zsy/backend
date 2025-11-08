@@ -243,6 +243,10 @@ SOCIAL_AUTH_USER_MODEL = "accounts.User"
 
 SOCIAL_AUTH_URL_NAMESPACE = "social"
 SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDS = ["username", "first_name", "email"]
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = env.bool(
+    "SOCIAL_AUTH_REDIRECT_IS_HTTPS",
+    default=not DEBUG,
+)
 
 
 # email backend
