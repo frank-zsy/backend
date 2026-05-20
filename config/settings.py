@@ -251,10 +251,29 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-STORAGES = {
-    "default": {
+# Media files (user uploads)
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# 仅当 AWS S3 必要参数齐全时启用 S3 存储后端，否则回退到本地文件系统，
+# 避免因空 endpoint_url 等参数触发 botocore 的 `ValueError: Invalid endpoint:`。
+_USE_S3_STORAGE = bool(
+    AWS_STORAGE_BUCKET_NAME
+    and AWS_S3_ACCESS_KEY_ID
+    and AWS_S3_SECRET_ACCESS_KEY
+)
+
+if _USE_S3_STORAGE:
+    _default_storage_backend = {
         "BACKEND": "storages.backends.s3.S3Storage",
-    },
+    }
+else:
+    _default_storage_backend = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    }
+
+STORAGES = {
+    "default": _default_storage_backend,
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
@@ -305,7 +324,7 @@ SOCIAL_AUTH_USER_MODEL = "accounts.User"
 
 SOCIAL_AUTH_URL_NAMESPACE = "social"
 SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDzS = ["username", "first_name", "email"]
-SOCIAL_AUTH_REDIRECT_IS_HTTPS = True
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG
 
 
 # email backend

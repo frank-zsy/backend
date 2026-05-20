@@ -111,6 +111,24 @@ def _public_profile_payload(user) -> PublicProfileSchema:
     )
 
 
+@router.get("/search")
+def homepage_search_endpoint(request, q: str = ""):
+    """Search repos and developers from name_info table."""
+    keyword = q.strip()
+    if not keyword:
+        return {"items": []}
+    try:
+        from chdb import services as chdb_services
+
+        return {"items": chdb_services.search_name_info(keyword)}
+    except Exception as exc:
+        raise ApiError(
+            "search_unavailable",
+            503,
+            "Search is currently unavailable.",
+        ) from exc
+
+
 @router.get(
     "/users/search",
     response={200: PublicUserSearchResponseSchema, 422: ErrorResponseSchema},

@@ -61,9 +61,28 @@ class AllocationPreviewRequestSchema(Schema):
     user_scope: AllocationScopeSchema | None = None
     start_month: date
     end_month: date
-    total_amount: int
+
+
+class AllocationItemSchema(Schema):
+    actor_id: str
+    actor_login: str
+    platform: str
+    email: str = ""
+    is_registered: bool
+    user_id: int | None = None
+    contribution_score: float
+    amount: int
+
+
+class AllocationExecuteRequestSchema(Schema):
+    source_selector: SourceSelectorSchema
+    project_scope: AllocationScopeSchema
+    user_scope: AllocationScopeSchema | None = None
+    start_month: date
+    end_month: date
     adjustment_ratio: float = 1.0
-    individual_adjustments: dict[str, int] = {}
+    total_amount: int
+    allocations: list[AllocationItemSchema]
 
 
 def _validation_detail(field: str, message: str, code: str = "invalid") -> dict:
@@ -191,8 +210,9 @@ def _serialize_allocation(allocation: PointAllocation) -> dict:
         "pending_grants": [
             {
                 "id": grant.id,
-                "github_id": grant.github_id,
-                "github_login": grant.github_login,
+                "platform": grant.platform,
+                "actor_id": grant.actor_id,
+                "actor_login": grant.actor_login,
                 "email": grant.email,
                 "amount": grant.amount,
                 "point_type": grant.point_type,
@@ -391,7 +411,22 @@ def _validate_allocation_scope(
     return scope.model_dump()
 
 
-def _validate_allocation_request(payload: AllocationPreviewRequestSchema) -> None:
+def _validate_preview_request(payload: AllocationPreviewRequestSchema) -> None:
+    if payload.start_month > payload.end_month:
+        raise ApiError(
+            "validation_error",
+            422,
+            "Request validation failed.",
+            _validation_detail(
+                "end_month",
+                "end_month must be greater than or equal to start_month.",
+            ),
+        )
+    _validate_allocation_scope("project_scope", payload.project_scope, required=True)
+    _validate_allocation_scope("user_scope", payload.user_scope, required=False)
+
+
+def _validate_execute_request(payload: AllocationExecuteRequestSchema) -> None:
     if payload.total_amount <= 0:
         raise ApiError(
             "validation_error",
@@ -399,16 +434,6 @@ def _validate_allocation_request(payload: AllocationPreviewRequestSchema) -> Non
             "Request validation failed.",
             _validation_detail(
                 "total_amount", "total_amount must be greater than zero."
-            ),
-        )
-    if payload.adjustment_ratio <= 0:
-        raise ApiError(
-            "validation_error",
-            422,
-            "Request validation failed.",
-            _validation_detail(
-                "adjustment_ratio",
-                "adjustment_ratio must be greater than zero.",
             ),
         )
     if payload.start_month > payload.end_month:
@@ -421,37 +446,52 @@ def _validate_allocation_request(payload: AllocationPreviewRequestSchema) -> Non
                 "end_month must be greater than or equal to start_month.",
             ),
         )
-    invalid_adjustments = [
-        key
-        for key, value in payload.individual_adjustments.items()
-        if isinstance(value, bool) or value < 0
-    ]
-    if invalid_adjustments:
+    if not payload.allocations:
         raise ApiError(
             "validation_error",
             422,
             "Request validation failed.",
             _validation_detail(
-                "individual_adjustments",
-                "Each individual adjustment must be a non-negative integer.",
+                "allocations", "allocations must not be empty."
+            ),
+        )
+    if any(item.amount < 0 for item in payload.allocations):
+        raise ApiError(
+            "validation_error",
+            422,
+            "Request validation failed.",
+            _validation_detail(
+                "allocations.amount",
+                "Each allocation amount must not be negative.",
+            ),
+        )
+    computed_total = sum(item.amount for item in payload.allocations)
+    if computed_total != payload.total_amount:
+        raise ApiError(
+            "validation_error",
+            422,
+            "Request validation failed.",
+            _validation_detail(
+                "total_amount",
+                f"Sum of allocation amounts ({computed_total}) does not match total_amount ({payload.total_amount}).",
             ),
         )
     _validate_allocation_scope("project_scope", payload.project_scope, required=True)
     _validate_allocation_scope("user_scope", payload.user_scope, required=False)
 
 
-def _build_unsaved_allocation(
+def _build_unsaved_preview_allocation(
     payload: AllocationPreviewRequestSchema, source_pool: PointSource
 ) -> PointAllocation:
     return PointAllocation(
         source_pool=source_pool,
-        total_amount=payload.total_amount,
+        total_amount=0,
         project_scope=payload.project_scope.model_dump(),
         user_scope=payload.user_scope.model_dump() if payload.user_scope else None,
         start_month=payload.start_month,
         end_month=payload.end_month,
-        adjustment_ratio=Decimal(str(payload.adjustment_ratio)),
-        individual_adjustments=payload.individual_adjustments,
+        adjustment_ratio=Decimal("1.0"),
+        individual_adjustments={},
     )
 
 
@@ -901,19 +941,12 @@ def point_tag_search_endpoint(request, q: str = ""):
 )
 def allocation_preview_endpoint(request, payload: AllocationPreviewRequestSchema):
     """Preview a points allocation run without executing it."""
-    _validate_allocation_request(payload)
+    _validate_preview_request(payload)
     source_pool, available_balance = _resolve_source_pool(
         request.auth, payload.source_selector
     )
-    if payload.total_amount > available_balance:
-        raise ApiError(
-            "insufficient_points",
-            409,
-            "The selected point pool does not have enough balance for this allocation.",
-            {"available_balance": available_balance},
-        )
 
-    allocation = _build_unsaved_allocation(payload, source_pool)
+    allocation = _build_unsaved_preview_allocation(payload, source_pool)
     try:
         preview = _normalize_preview_items(
             AllocationService.preview_allocation(allocation)
@@ -927,7 +960,7 @@ def allocation_preview_endpoint(request, payload: AllocationPreviewRequestSchema
     return {
         "source_selector": payload.source_selector.model_dump(),
         "available_balance": available_balance,
-        "total_points": sum(item["adjusted_points"] for item in preview),
+        "contribution_to_points_ratio": AllocationService.CONTRIBUTION_TO_POINTS_RATIO,
         "total_recipients": len(preview),
         "preview": preview,
     }
@@ -944,9 +977,9 @@ def allocation_preview_endpoint(request, payload: AllocationPreviewRequestSchema
         503: ErrorResponseSchema,
     },
 )
-def allocation_execute_endpoint(request, payload: AllocationPreviewRequestSchema):
+def allocation_execute_endpoint(request, payload: AllocationExecuteRequestSchema):
     """Create and execute a points allocation."""
-    _validate_allocation_request(payload)
+    _validate_execute_request(payload)
     source_pool, available_balance = _resolve_source_pool(
         request.auth, payload.source_selector
     )
@@ -969,17 +1002,12 @@ def allocation_execute_endpoint(request, payload: AllocationPreviewRequestSchema
         start_month=payload.start_month,
         end_month=payload.end_month,
         adjustment_ratio=Decimal(str(payload.adjustment_ratio)),
-        individual_adjustments=payload.individual_adjustments,
+        individual_adjustments={},
     )
+
+    allocations_data = [item.model_dump() for item in payload.allocations]
     try:
-        result = AllocationService.execute_allocation(allocation)
-    except ContributionDataUnavailableError as exc:
-        allocation.delete()
-        raise ApiError(
-            "contribution_data_unavailable",
-            503,
-            "Contribution data is currently unavailable.",
-        ) from exc
+        result = AllocationService.execute_allocation(allocation, allocations_data)
     except (services.InsufficientPointsError, RuntimeError, ValueError) as exc:
         raise ApiError(
             "allocation_failed",

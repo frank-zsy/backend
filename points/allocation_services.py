@@ -32,7 +32,12 @@ class AllocationService:
     """积分分配服务."""
 
     CONTRIBUTION_TO_POINTS_RATIO = 300  # 1 贡献度 = 300 积分
-    GITHUB_SOCIAL_AUTH_PREFETCH_ATTR = "prefetched_github_social_auth"
+    CODE_HOSTING_PROVIDERS = {"github", "gitee", "gitlab", "gitea", "atomgit"}
+    SOCIAL_AUTH_PREFETCH_ATTR = "prefetched_code_hosting_social_auth"
+    # Deprecated: kept for backward compatibility with management commands
+    GITHUB_SOCIAL_AUTH_PREFETCH_ATTR = "prefetched_code_hosting_social_auth"
+    # 待领取积分批量写入的批大小,在大量未注册贡献者场景下显著降低 DB 往返次数
+    PENDING_GRANT_BULK_BATCH_SIZE = 500
 
     @staticmethod
     def preview_allocation(allocation: PointAllocation) -> list[dict]:
@@ -42,14 +47,14 @@ class AllocationService:
         Returns:
             [
                 {
-                    "github_login": "alice",
-                    "github_id": "123",
+                    "actor_id": "123",
+                    "actor_login": "alice",
                     "email": "alice@example.com",
                     "is_registered": True,
                     "user_id": 1,
                     "contribution_score": 250.5,
-                    "calculated_points": 75150,
-                    "adjusted_points": 75150
+                    "platform": "github",
+                    "gitee_login": ""
                 },
                 ...
             ]
@@ -71,16 +76,21 @@ class AllocationService:
             return []
 
         results = AllocationService._build_preview_results(allocation, contributions)
-        AllocationService._scale_results_to_total_amount(
-            results, allocation.total_amount
-        )
 
         return results
 
     @staticmethod
-    def execute_allocation(allocation: PointAllocation) -> dict:
+    def execute_allocation(
+        allocation: PointAllocation, allocations: list[dict]
+    ) -> dict:
         """
         执行积分分配.
+
+        Args:
+            allocation: PointAllocation 记录
+            allocations: 前端传入的分配列表, 每项含:
+                actor_id, actor_login, platform, email,
+                is_registered, user_id, contribution_score, amount
 
         Returns:
             {
@@ -91,14 +101,33 @@ class AllocationService:
             }
 
         """
+        # 校验 sum(amount) == total_amount
+        computed_total = sum(item["amount"] for item in allocations)
+        if computed_total != allocation.total_amount:
+            msg = (
+                f"Sum of allocation amounts ({computed_total}) "
+                f"does not match total_amount ({allocation.total_amount})."
+            )
+            raise ValueError(msg)
+
+        # 防御性校验：每条 amount 不得为负
+        if any(item["amount"] < 0 for item in allocations):
+            msg = "Allocation amount must not be negative."
+            raise ValueError(msg)
+
         AllocationService._mark_allocation_executing(allocation)
 
         try:
             with transaction.atomic():
-                preview = AllocationService.preview_allocation(allocation)
-                stats = AllocationService._apply_allocation_items(allocation, preview)
-                AllocationService._deduct_source_pool(allocation, stats["total_points"])
-                AllocationService._finalize_allocation(allocation, preview, stats)
+                stats = AllocationService._apply_allocation_items(
+                    allocation, allocations
+                )
+                AllocationService._deduct_source_pool(
+                    allocation, stats["total_points"]
+                )
+                AllocationService._finalize_allocation(
+                    allocation, allocations, stats
+                )
                 return stats
         except Exception:
             AllocationService._mark_allocation_failed(allocation)
@@ -198,8 +227,8 @@ class AllocationService:
         return [
             c
             for c in contributions
-            if c.get("github_login") in allowed_users
-            or str(c.get("github_id")) in allowed_users
+            if c.get("actor_login") in allowed_users
+            or str(c.get("actor_id")) in allowed_users
         ]
 
     @staticmethod
@@ -217,22 +246,7 @@ class AllocationService:
 
     @staticmethod
     def _build_preview_item(allocation: PointAllocation, contrib: dict) -> dict:
-        calculated = int(
-            float(contrib["contribution_score"])
-            * AllocationService.CONTRIBUTION_TO_POINTS_RATIO
-        )
-        adjusted = int(calculated * float(allocation.adjustment_ratio))
-
-        user_key = contrib.get("user_id") or contrib["github_login"]
-        override = allocation.individual_adjustments.get(str(user_key))
-        if override is not None:
-            adjusted = override
-
-        return {
-            **contrib,
-            "calculated_points": calculated,
-            "adjusted_points": adjusted,
-        }
+        return {**contrib}
 
     @staticmethod
     def _scale_results_to_total_amount(results: list[dict], total_amount: int) -> None:
@@ -288,21 +302,39 @@ class AllocationService:
 
     @staticmethod
     def _apply_allocation_items(
-        allocation: PointAllocation, preview: list[dict]
+        allocation: PointAllocation, allocations: list[dict]
     ) -> dict:
         success_count = 0
         pending_count = 0
         failed_count = 0
         total_points = 0
+        pending_buffer: list[PendingPointGrant] = []
 
-        for item in preview:
-            success_inc, pending_inc, failed_inc, total_inc = (
-                AllocationService._process_preview_item(allocation, item)
+        for item in allocations:
+            amount = item["amount"]
+            if amount <= 0:
+                continue
+
+            if item["is_registered"] and item.get("user_id"):
+                success = AllocationService._grant_registered_points(
+                    allocation, item, amount
+                )
+                if success:
+                    success_count += 1
+                    total_points += amount
+                else:
+                    failed_count += 1
+                continue
+
+            pending_buffer.append(
+                AllocationService._build_pending_grant_instance(
+                    allocation, item, amount
+                )
             )
-            success_count += success_inc
-            pending_count += pending_inc
-            failed_count += failed_inc
-            total_points += total_inc
+            pending_count += 1
+            total_points += amount
+
+        AllocationService._bulk_create_pending_grants(pending_buffer)
 
         return {
             "success": success_count,
@@ -312,12 +344,24 @@ class AllocationService:
         }
 
     @staticmethod
+    def _bulk_create_pending_grants(
+        instances: list[PendingPointGrant],
+    ) -> None:
+        """以分批方式写入待领取积分,降低单条 INSERT 带来的开销."""
+        if not instances:
+            return
+        PendingPointGrant.objects.bulk_create(
+            instances,
+            batch_size=AllocationService.PENDING_GRANT_BULK_BATCH_SIZE,
+        )
+
+    @staticmethod
     def _process_preview_item(allocation: PointAllocation, item: dict) -> tuple:
-        amount = item["adjusted_points"]
+        amount = item.get("amount") or item.get("adjusted_points", 0)
         if amount <= 0:
             return (0, 0, 0, 0)
 
-        if item["is_registered"]:
+        if item["is_registered"] and item.get("user_id"):
             success = AllocationService._grant_registered_points(
                 allocation, item, amount
             )
@@ -387,12 +431,22 @@ class AllocationService:
         return True
 
     @staticmethod
-    def _create_pending_grant(
+    def _build_pending_grant_instance(
         allocation: PointAllocation, item: dict, amount: int
-    ) -> None:
-        PendingPointGrant.objects.create(
-            github_id=item.get("github_id", ""),
-            github_login=item["github_login"],
+    ) -> PendingPointGrant:
+        """构建未持久化的 PendingPointGrant 实例,供批量写入复用."""
+        platform = (item.get("platform") or "").strip()
+        if not platform:
+            msg = (
+                "Pending grant cannot be created without a platform; "
+                "upstream contribution data must include 'platform'."
+            )
+            raise ValueError(msg)
+
+        return PendingPointGrant(
+            platform=platform.lower(),
+            actor_id=item.get("actor_id", ""),
+            actor_login=item.get("actor_login", ""),
             email=item.get("email", ""),
             amount=amount,
             point_type=allocation.source_pool.point_type,
@@ -403,6 +457,16 @@ class AllocationService:
             granter_id=allocation.initiator_id,
             allocation=allocation,
         )
+
+    @staticmethod
+    def _create_pending_grant(
+        allocation: PointAllocation, item: dict, amount: int
+    ) -> None:
+        """保留单条写入入口,兼容历史调用方与 _process_preview_item 测试链路."""
+        instance = AllocationService._build_pending_grant_instance(
+            allocation, item, amount
+        )
+        instance.save()
 
     @staticmethod
     def _finalize_allocation(
@@ -433,41 +497,39 @@ class AllocationService:
         return item_copy
 
     @staticmethod
-    def _get_github_social_auth(user):
-        prefetched_social_auth = getattr(
+    def _build_pending_claim_query(user) -> models.Q:
+        """Build query to find claimable pending grants for a user across all platforms."""
+        prefetched = getattr(
             user,
-            AllocationService.GITHUB_SOCIAL_AUTH_PREFETCH_ATTR,
+            AllocationService.SOCIAL_AUTH_PREFETCH_ATTR,
             None,
         )
-        if prefetched_social_auth is not None:
-            return prefetched_social_auth[0] if prefetched_social_auth else None
+        if prefetched is not None:
+            social_auths = [(sa.provider, sa.uid) for sa in prefetched]
+        else:
+            social_auths = list(
+                user.social_auth.filter(
+                    provider__in=AllocationService.CODE_HOSTING_PROVIDERS
+                ).values_list("provider", "uid")
+            )
 
-        return user.social_auth.filter(provider="github").only("uid").first()
+        conditions: list[models.Q] = []
+        for provider, uid in social_auths:
+            normalized_uid = str(uid).strip()
+            if not normalized_uid:
+                continue
+            conditions.append(
+                models.Q(platform=provider, actor_id=normalized_uid)
+            )
 
-    @staticmethod
-    def _build_pending_claim_query(user) -> models.Q:
-        github_social = AllocationService._get_github_social_auth(user)
-        github_uid = github_social.uid if github_social else None
-        github_id = str(github_uid).strip() if github_uid is not None else ""
-        github_login = (user.username or "").strip()
-        email = (user.email or "").strip()
-
-        identifier_conditions: list[models.Q] = []
-        if github_id:
-            identifier_conditions.append(models.Q(github_id=github_id))
-        if github_login:
-            identifier_conditions.append(models.Q(github_login=github_login))
-        if email:
-            identifier_conditions.append(models.Q(email=email))
-
-        if not identifier_conditions:
+        if not conditions:
             return models.Q(pk__isnull=True)
 
-        identifier_query = identifier_conditions[0]
-        for condition in identifier_conditions[1:]:
-            identifier_query |= condition
+        combined = conditions[0]
+        for c in conditions[1:]:
+            combined |= c
 
-        return models.Q(is_claimed=False) & identifier_query
+        return models.Q(is_claimed=False) & combined
 
     @staticmethod
     def _build_unexpired_pending_grant_query() -> models.Q:

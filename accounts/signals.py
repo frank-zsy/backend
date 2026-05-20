@@ -8,11 +8,13 @@ from social_django.models import UserSocialAuth
 
 logger = logging.getLogger(__name__)
 
+CODE_HOSTING_PROVIDERS = {"github", "gitee", "gitlab", "gitea", "atomgit"}
+
 
 @receiver(post_save, sender=UserSocialAuth)
 def claim_pending_points_on_login(sender, instance, created, **kwargs):
     """用户首次 OAuth 登录时自动领取待领取积分."""
-    if created and instance.provider == "github":
+    if created and instance.provider in CODE_HOSTING_PROVIDERS:
         from points.allocation_services import AllocationService
 
         user = instance.user

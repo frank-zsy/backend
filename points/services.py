@@ -125,12 +125,14 @@ def get_detailed_balance(owner: User | Organization) -> dict:
 
     gift_total = 0
     by_tag = defaultdict(int)
+    by_tag_names: dict[str, str] = {}
     no_tag_total = 0
 
     for source in gift_sources:
         gift_total += source.remaining_amount
         if source.tag:
             by_tag[source.tag.slug] += source.remaining_amount
+            by_tag_names.setdefault(source.tag.slug, source.tag.name)
         else:
             no_tag_total += source.remaining_amount
 
@@ -140,6 +142,7 @@ def get_detailed_balance(owner: User | Organization) -> dict:
         "gift": gift_total,
         "gift_no_tag": no_tag_total,
         "by_tag": dict(by_tag),
+        "by_tag_names": by_tag_names,
     }
 
 
@@ -153,6 +156,7 @@ def get_detailed_balance_or_zero(owner: User | Organization) -> dict:
             "gift": 0,
             "gift_no_tag": 0,
             "by_tag": {},
+            "by_tag_names": {},
         }
 
     # Mirror get_detailed_balance while keeping the call read-only.
@@ -164,12 +168,14 @@ def get_detailed_balance_or_zero(owner: User | Organization) -> dict:
 
     gift_total = 0
     by_tag = defaultdict(int)
+    by_tag_names: dict[str, str] = {}
     no_tag_total = 0
 
     for source in gift_sources:
         gift_total += source.remaining_amount
         if source.tag:
             by_tag[source.tag.slug] += source.remaining_amount
+            by_tag_names.setdefault(source.tag.slug, source.tag.name)
         else:
             no_tag_total += source.remaining_amount
 
@@ -179,6 +185,7 @@ def get_detailed_balance_or_zero(owner: User | Organization) -> dict:
         "gift": gift_total,
         "gift_no_tag": no_tag_total,
         "by_tag": dict(by_tag),
+        "by_tag_names": by_tag_names,
     }
 
 
