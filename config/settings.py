@@ -240,7 +240,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 if TESTING:
     STATIC_ROOT = Path(tempfile.gettempdir()) / "fullsite-staticfiles"
     STATIC_ROOT.mkdir(parents=True, exist_ok=True)
@@ -252,7 +252,7 @@ LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Media files (user uploads)
-MEDIA_URL = "media/"
+MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # 仅当 AWS S3 必要参数齐全时启用 S3 存储后端，否则回退到本地文件系统，

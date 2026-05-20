@@ -89,6 +89,7 @@ CONTRIBUTIONS_SQL = """
       AND toYYYYMM(created_at) <= {end_month:UInt32}
     GROUP BY platform, actor_id
     ORDER BY or DESC
+    LIMIT 300000
 """
 
 
@@ -282,30 +283,15 @@ def _collect_user_ids(label_entities: dict[str, dict[str, Any]]) -> list[int]:
 def _parse_contribution_rows(rows: list[Any]) -> list[dict[str, Any]]:
     """解析贡献度查询结果.
 
-    期望列顺序：(platform, actor_id, actor_login, contribution_score, details?)。
-    为兼容历史 4 列格式 (actor_id, login, score, details)，对长度不足或首列
-    非平台字符串的情况回退到 "GitHub" 默认值。
+    期望列顺序：(platform, actor_id, actor_login, contribution_score, details)。
     """
     contributions = []
     for row in rows:
-        platform = "GitHub"
-        details = None
-
-        # 新格式：5 列 (platform, actor_id, login, score, details)
-        if len(row) >= 4 and isinstance(row[0], str) and not _looks_like_actor_id(row[0]):
-            platform = row[0] or "GitHub"
-            actor_id = row[1]
-            actor_login = row[2]
-            contribution_score = row[3]
-            if len(row) > 4:
-                details = row[4]
-        else:
-            # 兼容旧格式：4 列 (actor_id, login, score, details)
-            actor_id = row[0]
-            actor_login = row[1]
-            contribution_score = row[2]
-            if len(row) > 3:
-                details = row[3]
+        platform = row[0] or "GitHub"
+        actor_id = row[1]
+        actor_login = row[2]
+        contribution_score = row[3]
+        details = row[4]
 
         payload = {
             "platform": platform,
@@ -319,13 +305,6 @@ def _parse_contribution_rows(rows: list[Any]) -> list[dict[str, Any]]:
         contributions.append(payload)
 
     return contributions
-
-
-def _looks_like_actor_id(value: Any) -> bool:
-    """判断字符串是否更像 actor_id（纯数字）而非平台名。"""
-    if not isinstance(value, str):
-        return False
-    return value.isdigit()
 
 
 def search_tags(keyword: str, limit: int = 5) -> list[dict[str, Any]]:

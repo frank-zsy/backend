@@ -7,6 +7,7 @@ from django.db.models import Prefetch
 from social_django.models import UserSocialAuth
 
 from accounts.models import User
+from common.constants import CODE_HOSTING_PROVIDERS
 from points.allocation_services import AllocationService
 
 logger = logging.getLogger(__name__)
@@ -242,7 +243,7 @@ class Command(BaseCommand):
             Prefetch(
                 "social_auth",
                 queryset=UserSocialAuth.objects.filter(
-                    provider__in=AllocationService.CODE_HOSTING_PROVIDERS
+                    provider__in=CODE_HOSTING_PROVIDERS
                 )
                 .only("id", "user_id", "provider", "uid")
                 .order_by("id"),

@@ -394,8 +394,9 @@ class PendingPointGrant(models.Model):
     设计要点:
     1. 每次向未注册用户发放积分都会创建一条记录
     2. 记录永久保留, 不会删除(即使已领取)
-    3. 用户注册后通过 platform + actor_id/actor_login/email 匹配并自动领取
-    4. 支持完整的历史追溯和审计
+    3. 用户注册后仅通过 platform + actor_id 匹配并自动领取
+    4. actor_login 和 email 用于记录/审计, 不作为领取时的回退匹配条件
+    5. 支持完整的历史追溯和审计
     """
 
     # 用户识别信息（至少一个）

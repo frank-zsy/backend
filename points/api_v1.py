@@ -35,6 +35,7 @@ from .models import (
     PointTransaction,
     PointType,
     Tag,
+    TransactionType,
     WithdrawalRequest,
 )
 
@@ -991,7 +992,13 @@ def allocation_execute_endpoint(request, payload: AllocationExecuteRequestSchema
             {"available_balance": available_balance},
         )
 
+    # initiator_type/initiator_id 同时起“发起者”与“执行操作者”作用,
+    # 始终记录当前登录用户(request.auth), 等价于 created_by / operator.
     initiator_type = ContentType.objects.get_for_model(request.auth)
+    # adjustment_ratio 语义: 实际发放积分总量 / 理论应发放积分总量,
+    # 理论应发放 = sum(floor(contribution_score *
+    # AllocationService.CONTRIBUTION_TO_POINTS_RATIO)).
+    # 由前端依照该定义计算后传入, 后端原样持久化以用于详情展示.
     allocation = PointAllocation.objects.create(
         initiator_type=initiator_type,
         initiator_id=request.auth.id,
@@ -1040,6 +1047,70 @@ def _user_can_access_allocation(user, allocation: PointAllocation) -> bool:
     return False
 
 
+def _user_is_allocation_beneficiary(user, allocation: PointAllocation) -> bool:
+    """
+    判断 user 是否为该次分配的受益人.
+
+    依据当前用户钱包中是否存在 reference_id=allocation_{id} 的 EARN 类型交易,
+    覆盖以下两种场景:
+    1. 分配执行时即被直接发放积分的已注册受益人
+    2. 分配生成的待领取记录被该用户后续认领后发放的积分
+    """
+    user_ct = ContentType.objects.get_for_model(user)
+    return PointTransaction.objects.filter(
+        wallet__content_type=user_ct,
+        wallet__object_id=user.id,
+        transaction_type=TransactionType.EARN,
+        reference_id=f"allocation_{allocation.id}",
+    ).exists()
+
+
+def _serialize_allocation_summary(allocation: PointAllocation) -> dict:
+    """
+    返回受益人可见的有限分配信息.
+
+    仅暴露与受益人自身权益相关的元数据:
+    - 积分池来源 (个人/组织、名称、积分类型、标签)
+    - 项目范围/用户范围标签
+    - 时间区间
+    - 全局调整比例
+    - 状态与执行时间
+
+    刻意排除以下敏感字段, 避免泄露其他受益人或资金细节:
+    - total_amount (本次分配总额)
+    - contribution_data (其他开发者贡献度与分配明细)
+    - pending_grants (待领取列表)
+    - total_recipients / registered_recipients / unregistered_recipients
+    """
+    source_owner = allocation.source_pool.wallet.owner
+    source_tag = allocation.source_pool.tag
+    is_org = isinstance(source_owner, Organization)
+    return {
+        "id": allocation.id,
+        "status": allocation.status,
+        "source_pool": {
+            "owner_type": "organization" if is_org else "user",
+            "owner_slug": source_owner.slug if is_org else None,
+            "owner_name": source_owner.name if is_org else source_owner.username,
+            "point_type": allocation.source_pool.point_type,
+            "tag": (
+                {"slug": source_tag.slug, "name": source_tag.name}
+                if source_tag
+                else None
+            ),
+        },
+        "project_scope": allocation.project_scope,
+        "user_scope": allocation.user_scope,
+        "start_month": allocation.start_month.isoformat(),
+        "end_month": allocation.end_month.isoformat(),
+        "adjustment_ratio": float(allocation.adjustment_ratio),
+        "created_at": allocation.created_at.isoformat(),
+        "executed_at": allocation.executed_at.isoformat()
+        if allocation.executed_at
+        else None,
+    }
+
+
 @router.get("/allocations/{allocation_id}")
 def allocation_detail_endpoint(request, allocation_id: int):
     """Return a single allocation record."""
@@ -1056,3 +1127,32 @@ def allocation_detail_endpoint(request, allocation_id: int):
             "You do not have permission to view this allocation.",
         )
     return _serialize_allocation(allocation)
+
+
+@router.get("/allocations/{allocation_id}/summary")
+def allocation_summary_endpoint(request, allocation_id: int):
+    """
+    Return limited allocation info visible to beneficiaries.
+
+    访问条件 (满足任一):
+    1. 该用户为分配发起者 / 积分池所有者 / 组织 OWNER|ADMIN (复用 _user_can_access_allocation)
+    2. 该用户为该次分配的受益人 (拥有 reference_id=allocation_{id} 的 EARN 交易)
+
+    返回字段刻意精简, 避免受益人看到他人收入或本次分配总额.
+    """
+    allocation = get_object_or_404(
+        PointAllocation.objects.select_related(
+            "source_pool__wallet__content_type", "source_pool__tag"
+        ),
+        id=allocation_id,
+    )
+    if not (
+        _user_can_access_allocation(request.auth, allocation)
+        or _user_is_allocation_beneficiary(request.auth, allocation)
+    ):
+        raise ApiError(
+            "forbidden",
+            403,
+            "You do not have permission to view this allocation.",
+        )
+    return _serialize_allocation_summary(allocation)

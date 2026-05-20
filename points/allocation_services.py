@@ -10,6 +10,8 @@ from django.utils import timezone
 
 from contributions.services import ContributionService
 
+from common.constants import CODE_HOSTING_PROVIDERS
+
 from .models import (
     AllocationStatus,
     PendingPointGrant,
@@ -32,7 +34,6 @@ class AllocationService:
     """积分分配服务."""
 
     CONTRIBUTION_TO_POINTS_RATIO = 300  # 1 贡献度 = 300 积分
-    CODE_HOSTING_PROVIDERS = {"github", "gitee", "gitlab", "gitea", "atomgit"}
     SOCIAL_AUTH_PREFETCH_ATTR = "prefetched_code_hosting_social_auth"
     # Deprecated: kept for backward compatibility with management commands
     GITHUB_SOCIAL_AUTH_PREFETCH_ATTR = "prefetched_code_hosting_social_auth"
@@ -470,26 +471,48 @@ class AllocationService:
 
     @staticmethod
     def _finalize_allocation(
-        allocation: PointAllocation, preview: list[dict], stats: dict
+        allocation: PointAllocation,
+        allocations_with_amount: list[dict],
+        stats: dict,
     ) -> None:
+        """
+        将执行结果与完整分配快照写入 PointAllocation.
+
+        ``allocations_with_amount`` 来自 execute_allocation 的入参,
+        每项包含 actor_id / actor_login / platform / email /
+        is_registered / user_id / contribution_score / amount,
+        作为后续交易记录/分配详情展示的不可变快照.
+        """
         allocation.status = "completed"
         allocation.executed_at = timezone.now()
-        allocation.total_recipients = len(preview)
+        allocation.total_recipients = len(allocations_with_amount)
         allocation.registered_recipients = stats["success"]
         allocation.unregistered_recipients = stats["pending"]
         allocation.contribution_data = AllocationService._build_contribution_snapshot(
-            preview
+            allocations_with_amount
         )
         allocation.save()
 
     @staticmethod
-    def _build_contribution_snapshot(preview: list[dict]) -> list[dict]:
+    def _build_contribution_snapshot(
+        allocations_with_amount: list[dict],
+    ) -> list[dict]:
+        """
+        构建持久化到 contribution_data 的分配快照.
+
+        保留每个开发者完整的分配元数据(包含 amount),用于:
+        - 分配详情页面的明细展示
+        - 交易记录页关联回分配上下文
+        - 历史审计/对账
+        """
         return [
-            AllocationService._normalize_contribution_item(item) for item in preview
+            AllocationService._normalize_contribution_item(item)
+            for item in allocations_with_amount
         ]
 
     @staticmethod
     def _normalize_contribution_item(item: dict) -> dict:
+        """标准化单项快照: 复制全部键(含 amount), 仅将 Decimal 贡献度转为 float 以便 JSON 序列化."""
         item_copy = item.copy()
         contribution_score = item_copy.get("contribution_score")
         if isinstance(contribution_score, Decimal):
@@ -509,7 +532,7 @@ class AllocationService:
         else:
             social_auths = list(
                 user.social_auth.filter(
-                    provider__in=AllocationService.CODE_HOSTING_PROVIDERS
+                    provider__in=CODE_HOSTING_PROVIDERS
                 ).values_list("provider", "uid")
             )
 

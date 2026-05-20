@@ -3,7 +3,6 @@
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from social_django.models import UserSocialAuth
 

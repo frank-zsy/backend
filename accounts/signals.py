@@ -6,9 +6,9 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from social_django.models import UserSocialAuth
 
-logger = logging.getLogger(__name__)
+from common.constants import CODE_HOSTING_PROVIDERS
 
-CODE_HOSTING_PROVIDERS = {"github", "gitee", "gitlab", "gitea", "atomgit"}
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=UserSocialAuth)
