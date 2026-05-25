@@ -155,11 +155,11 @@ class AtomGitOAuth2(BaseOAuth2):
     """AtomGit OAuth2 authentication backend."""
 
     name = "atomgit"
-    AUTHORIZATION_URL = "https://atomgit.com/login/oauth/authorize"
-    ACCESS_TOKEN_URL = "https://api.atomgit.com/login/oauth/access_token"  # noqa: S105
+    AUTHORIZATION_URL = "https://atomgit.com/oauth/authorize"
+    ACCESS_TOKEN_URL = "https://atomgit.com/oauth/access_token"  # noqa: S105
     ACCESS_TOKEN_METHOD = "POST"  # noqa: S105
     REDIRECT_STATE = True
-    USER_DATA_URL = "https://api.atomgit.com/user/info"
+    USER_DATA_URL = "https://api.atomgit.com/api/v5/users/{username}"
 
     DEFAULT_SCOPE = ["user"]
     SCOPE_SEPARATOR = ","
@@ -171,7 +171,7 @@ class AtomGitOAuth2(BaseOAuth2):
         ("name", "name"),
         ("email", "email"),
         ("avatar_url", "avatar_url"),
-        ("html_url", "profile_url"),
+        ("html_url", "html_url"),
         ("bio", "bio"),
     ]
 
@@ -188,10 +188,19 @@ class AtomGitOAuth2(BaseOAuth2):
         }
 
     def user_data(self, access_token, *args, **kwargs):
-        """Fetch user profile using Bearer token."""
+        """Fetch user profile from AtomGit /api/v5/users/:username endpoint."""
+        # First, get the authenticated user's login name
+        basic_info = self.get_json(
+            "https://api.atomgit.com/api/v5/user",
+            params={"access_token": access_token},
+        )
+        username = basic_info.get("login", "")
+        if not username:
+            return basic_info
+        # Then fetch the full user profile
         return self.get_json(
-            self.USER_DATA_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
+            self.USER_DATA_URL.format(username=username),
+            params={"access_token": access_token},
         )
 
     def get_user_id(self, details, response):
