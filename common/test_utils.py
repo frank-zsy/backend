@@ -88,6 +88,16 @@ class BrowserE2ETestCase(CacheClearMixin, StaticLiveServerTestCase):
         }
         self.context = self.browser.new_context(ignore_https_errors=True)
         self._tracked_contexts.append(self.context)
+        # Block external network requests so tests don't depend on third-party
+        # services (e.g. Baidu Analytics) which can prevent networkidle.
+        self.context.route(
+            "**/*",
+            lambda route: (
+                route.abort()
+                if not self._is_same_origin(route.request.url)
+                else route.continue_()
+            ),
+        )
         self.page = self._create_monitored_page(self.context)
 
     def tearDown(self):
@@ -113,6 +123,14 @@ class BrowserE2ETestCase(CacheClearMixin, StaticLiveServerTestCase):
         """Create a second isolated page, useful for multi-user flows."""
         context = self.browser.new_context(ignore_https_errors=True)
         self._tracked_contexts.append(context)
+        context.route(
+            "**/*",
+            lambda route: (
+                route.abort()
+                if not self._is_same_origin(route.request.url)
+                else route.continue_()
+            ),
+        )
         page = self._create_monitored_page(context)
         return context, page
 
