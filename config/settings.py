@@ -149,7 +149,8 @@ SBY_PROVIDER_ID = env("SBY_PROVIDER_ID")
 SBY_FU_URL = env("SBY_FU_URL")
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    # Use the GitHub OAuth-backed admin site instead of the stock one.
+    "config.apps.GitHubAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",

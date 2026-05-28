@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ site_title|default:_('Admin') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Administration') }}</a></h1>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block content_title %}<h1>{% trans '无访问权限' %}</h1>{% endblock %}
+
+{% block content %}
+<p>
+    {% blocktrans with username=user.get_username %}
+    当前账号 <strong>{{ username }}</strong> 没有访问管理后台的权限。
+    {% endblocktrans %}
+</p>
+<p>
+    {% trans '请联系管理员为该 GitHub 账号开通后台访问权限，或使用具备管理员权限的账号登录。' %}
+</p>
+<p>
+    <a href="{% url 'admin:logout' %}">{% trans '退出当前账号' %}</a>
+</p>
+{% endblock %}

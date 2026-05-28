@@ -1,8 +1,7 @@
-"""Admin site customization for OpenShare."""
+"""Admin site customization for OpenShare.
 
-from django.contrib import admin
-
-# Admin site customization
-admin.site.site_header = "OpenShare 管理后台"
-admin.site.site_title = "OpenShare 管理后台"
-admin.site.index_title = "欢迎使用 OpenShare 管理后台"
+The site header/title/index title are configured directly on
+:class:`config.admin_site.GitHubAdminSite`. This module is intentionally kept
+as an import target so future per-instance tweaks remain easy to add without
+restructuring ``config/urls.py``.
+"""

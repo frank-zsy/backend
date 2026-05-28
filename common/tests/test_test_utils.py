@@ -135,7 +135,7 @@ class BrowserE2ETestCaseTests(SimpleTestCase):
         self.assertIs(new_page, page)
 
     def test_login_helpers_fill_forms_and_submit(self):
-        """User login injects session cookie; admin login drives the form."""
+        """Both login helpers force-login the user and inject session cookies."""
         page = Mock()
         submit_button = Mock()
         page.locator.return_value = submit_button
@@ -169,19 +169,33 @@ class BrowserE2ETestCaseTests(SimpleTestCase):
         page.reset_mock()
         submit_button.reset_mock()
         case.goto.reset_mock()
+        context.reset_mock()
 
-        BrowserE2ETestCase.login_admin_via_ui(case, "admin-user", "AdminPass123!")
+        # login_admin_via_ui now also force-logs-in (no admin form anymore).
+        with (
+            patch("common.test_utils.get_user_model") as mock_get_model,
+            patch("common.test_utils.Client") as mock_client_cls,
+        ):
+            mock_admin = Mock()
+            mock_get_model.return_value.objects.get.return_value = mock_admin
+            mock_client = Mock()
+            mock_client_cls.return_value = mock_client
+            mock_client.cookies = {"sessionid": Mock(value="admin-session-id")}
 
-        case.goto.assert_called_once_with("/admin/login/")
-        page.fill.assert_has_calls(
-            [
-                call("#id_username", "admin-user"),
-                call("#id_password", "AdminPass123!"),
-            ]
-        )
-        page.locator.assert_called_with("input[type='submit']")
-        submit_button.click.assert_called_once_with()
-        page.wait_for_load_state.assert_called_once_with("networkidle")
+            with self.settings(SESSION_COOKIE_NAME="sessionid"):
+                BrowserE2ETestCase.login_admin_via_ui(
+                    case, "admin-user", "AdminPass123!"
+                )
+
+            mock_client.force_login.assert_called_once_with(mock_admin)
+            context.add_cookies.assert_called_once()
+            admin_cookie = context.add_cookies.call_args[0][0][0]
+            self.assertEqual(admin_cookie["name"], "sessionid")
+            self.assertEqual(admin_cookie["value"], "admin-session-id")
+
+        # The admin helper must not drive the (now-removed) login form.
+        case.goto.assert_not_called()
+        page.fill.assert_not_called()
 
     def test_url_navigation_and_text_assertion_helpers(self):
         """URL helpers should normalize paths and page text assertions."""

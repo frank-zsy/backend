@@ -161,13 +161,33 @@ class BrowserE2ETestCase(CacheClearMixin, StaticLiveServerTestCase):
             ]
         )
 
-    def login_admin_via_ui(self, username, password):
-        """Authenticate through Django Admin's login form."""
-        self.goto("/admin/login/")
-        self.page.fill("#id_username", username)
-        self.page.fill("#id_password", password)
-        self.page.locator("input[type='submit']").click()
-        self.page.wait_for_load_state("networkidle")
+    def login_admin_via_ui(self, username, password=None):
+        """Authenticate as an admin user without going through the login form.
+
+        The admin login page now redirects to GitHub OAuth, so we cannot drive
+        a username/password form in tests. Instead we authenticate via Django's
+        test client and inject the resulting session cookie into the browser
+        context, mirroring :meth:`login_via_ui` for parity.
+
+        ``password`` is accepted (and ignored) for backwards compatibility with
+        existing call sites.
+        """
+        del password  # unused; kept for backwards compatibility
+        User = get_user_model()
+        user = User.objects.get(username=username)
+        client = Client()
+        client.force_login(user)
+        session_cookie = client.cookies[settings.SESSION_COOKIE_NAME]
+        self.context.add_cookies(
+            [
+                {
+                    "name": settings.SESSION_COOKIE_NAME,
+                    "value": session_cookie.value,
+                    "domain": urlparse(self.live_server_url).hostname,
+                    "path": "/",
+                }
+            ]
+        )
 
     def assert_page_contains(self, text):
         """Assert that the current page body contains text."""

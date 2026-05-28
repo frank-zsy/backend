@@ -22,9 +22,8 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+# Importing this module ensures any future site-level admin tweaks load.
 from config import admin as _admin_config  # noqa: F401
-
-# Import admin customization to apply settings
 from config.api_v1 import api_v1
 
 urlpatterns = [
