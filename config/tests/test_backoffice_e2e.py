@@ -1,18 +1,14 @@
 """Browser E2E coverage for key backoffice journeys."""
 
-import re
-from unittest.mock import patch
-
 from django.contrib.auth import get_user_model
 from django.test import override_settings, tag
 from django.urls import reverse
-from social_django.models import UserSocialAuth
 
 from accounts.models import Organization
 from common.test_utils import BrowserE2ETestCase
 from messages.models import UserMessage
 from points import services as points_services
-from points.models import PendingPointGrant, PointAllocation, PointType, Tag
+from points.models import PointType
 
 User = get_user_model()
 
@@ -160,136 +156,3 @@ class BackOfficeE2ETests(BrowserE2ETestCase):
         )
         self.assertGreater(self.page.locator("ul.errorlist li").count(), 0)
         self.assertEqual(points_services.get_balance(recipient, PointType.CASH), 0)
-
-    @patch("chdb.services.search_tags", return_value=[])
-    def test_allocation_config_handles_empty_search_results(
-        self,
-        _mock_search_tags,
-    ):
-        operator = User.objects.create_user(
-            username="allocation-empty-search",
-            email="allocation-empty-search@example.com",
-            password="AllocPass123!",
-        )
-        source_pool = points_services.grant_points(
-            operator,
-            500,
-            PointType.CASH,
-            "Allocation source pool",
-            created_by=operator,
-        )
-
-        self.login_via_ui(operator.username, "AllocPass123!")
-        self.goto(reverse("points:allocation_config"))
-        self.page.select_option("#allocation-pool-select", str(source_pool.id))
-        self.page.fill("#project-tag-search", "unlikely-keyword")
-        self.page.wait_for_timeout(400)
-
-        self.assertEqual(
-            self.page.locator(
-                "#project-tag-search-results .search-result-item"
-            ).count(),
-            0,
-        )
-        self.assertTrue(
-            self.page.locator("#preview-contributions-button").is_disabled()
-        )
-
-    @patch(
-        "chdb.services.search_tags",
-        return_value=[
-            {
-                "id": "demo/project",
-                "name": "Demo Project",
-                "platform": "GitHub",
-                "type": "repo",
-                "openrank": 123.45,
-            }
-        ],
-    )
-    @patch(
-        "chdb.services.get_label_users",
-        return_value={"demo/project": {"platforms": ["GitHub"]}},
-    )
-    @patch(
-        "contributions.services.ContributionService.get_contributions",
-    )
-    def test_allocation_config_preview_and_execute_journey(
-        self,
-        mock_get_contributions,
-        _mock_get_label_users,
-        _mock_search_tags,
-    ):
-        operator = User.objects.create_user(
-            username="allocation-operator",
-            email="allocation-operator@example.com",
-            password="AllocPass123!",
-        )
-        registered = User.objects.create_user(
-            username="registered-recipient",
-            email="registered-recipient@example.com",
-            password="AllocPass123!",
-        )
-        UserSocialAuth.objects.create(
-            user=registered,
-            provider="github",
-            uid="1001",
-        )
-        source_pool = points_services.grant_points(
-            operator,
-            1000,
-            PointType.CASH,
-            "Allocation source pool",
-            created_by=operator,
-        )
-        Tag.objects.create(name="Demo Project", slug="demo-project")
-
-        mock_get_contributions.return_value = [
-            {
-                "platform": "GitHub",
-                "actor_id": "1001",
-                "actor_login": registered.username,
-                "github_login": registered.username,
-                "email": registered.email,
-                "contribution_score": 2.0,
-                "is_registered": True,
-                "user_id": registered.id,
-            },
-            {
-                "platform": "GitHub",
-                "actor_id": "2002",
-                "actor_login": "pending-recipient",
-                "github_login": "pending-recipient",
-                "email": "pending-recipient@example.com",
-                "contribution_score": 1.0,
-                "is_registered": False,
-                "user_id": None,
-            },
-        ]
-
-        self.login_via_ui(operator.username, "AllocPass123!")
-        self.goto(reverse("points:allocation_config"))
-        self.page.select_option("#allocation-pool-select", str(source_pool.id))
-        self.page.fill("#allocation-total-amount", "900")
-        self.page.fill("#project-tag-search", "demo")
-        self.page.locator("#project-tag-search-results .search-result-item").click()
-        self.page.locator("#preview-contributions-button").click()
-        self.page.locator("#allocation-contributors-table").wait_for()
-
-        self.assert_page_contains(registered.username)
-        self.assert_page_contains("pending-recipient")
-
-        self.page.on("dialog", lambda dialog: dialog.accept())
-        self.page.locator("#execute-allocation-button").click()
-        self.page.wait_for_url(re.compile(r".*/points/wallet/$"))
-
-        allocation = PointAllocation.objects.latest("created_at")
-        self.assertEqual(allocation.status, "completed")
-        self.assertEqual(points_services.get_balance(registered, PointType.CASH), 600)
-        self.assertEqual(
-            PendingPointGrant.objects.filter(
-                allocation=allocation,
-                actor_login="pending-recipient",
-            ).count(),
-            1,
-        )

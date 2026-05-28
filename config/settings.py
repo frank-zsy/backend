@@ -156,7 +156,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    "django.contrib.flatpages",
     "django.contrib.redirects",
     "django.contrib.admindocs",
     # third party app
@@ -193,7 +192,6 @@ _BASE_MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "accounts.middleware.SocialAuthExceptionMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django.contrib.flatpages.middleware.FlatpageFallbackMiddleware",
     "django.contrib.redirects.middleware.RedirectFallbackMiddleware",
 ]
 
@@ -273,7 +271,6 @@ if TESTING:
     STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 else:
     STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "static"]
 
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -352,13 +349,6 @@ SOCIAL_AUTH_URL_NAMESPACE = "social"
 SOCIAL_AUTH_ADMIN_USER_SEARCH_FIELDzS = ["username", "first_name", "email"]
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG
 
-
-# email backend
-SOCIAL_AUTH_EMAIL_FORM_URL = "/accounts/login"
-SOCIAL_AUTH_EMAIL_FORM_HTML = "sign_in.html"
-# username auth
-SOCIAL_AUTH_USERNAME_FORM_URL = "/accounts/login"
-SOCIAL_AUTH_USERNAME_FORM_HTML = "sign_in.html"
 
 # Social Auth Backends Configuration
 SOCIAL_AUTH_GITHUB_KEY = env("SOCIAL_AUTH_GITHUB_KEY")

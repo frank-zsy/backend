@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from django.urls import reverse
 from social_django.middleware import (
     SocialAuthExceptionMiddleware as BaseSocialAuthExceptionMiddleware,
 )
@@ -12,7 +11,6 @@ from .social_auth import (
     EmailConflictRequiresBinding,
     FrontendSocialCallbackNotConfigured,
     build_frontend_social_callback_url,
-    is_api_social_callback_target,
 )
 
 EMAIL_CONFLICT_MESSAGE = (
@@ -36,13 +34,8 @@ class SocialAuthExceptionMiddleware(BaseSocialAuthExceptionMiddleware):
 
         backend = getattr(request, "backend", None)
         provider = getattr(backend, "name", "")
-        strategy = getattr(request, "social_strategy", None)
-        next_target = None
-        if strategy is not None:
-            next_target = strategy.session_get("next")
-        next_target = next_target or request.GET.get("next")
 
-        if provider and is_api_social_callback_target(next_target, provider):
+        if provider:
             try:
                 return build_frontend_social_callback_url(
                     provider,
@@ -51,4 +44,5 @@ class SocialAuthExceptionMiddleware(BaseSocialAuthExceptionMiddleware):
             except FrontendSocialCallbackNotConfigured:
                 pass
 
-        return reverse("accounts:sign_in")
+        # Fall back to the SPA root; the legacy Django sign-in page has been removed.
+        return "/"

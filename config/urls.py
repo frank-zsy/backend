@@ -22,7 +22,6 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
-from accounts.views import public_profile_view
 from config import admin as _admin_config  # noqa: F401
 
 # Import admin customization to apply settings
@@ -32,13 +31,8 @@ urlpatterns = [
     path("admin/doc/", include("django.contrib.admindocs.urls")),
     path("admin/", admin.site.urls),
     path("api/v1/", api_v1.urls),
+    # OAuth callbacks dispatched by social-django (used by the SPA login flow).
     path("", include("social_django.urls", namespace="social")),
-    path("accounts/", include("accounts.urls")),
-    path("messages/", include("messages.urls")),
-    path("points/", include("points.urls")),
-    path("", include("homepage.urls")),
-    # Public profile route - must be last to avoid conflicts
-    path("<str:username>/", public_profile_view, name="public_profile"),
 ]
 
 if settings.DEBUG and not settings.TESTING:

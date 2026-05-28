@@ -1,6 +1,7 @@
 """Tests for accounts tasks."""
 
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -10,6 +11,20 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from accounts.tasks import _build_password_reset_url
+
+_RESET_PATH = settings.FRONTEND_PASSWORD_RESET_PATH
+
+
+def _extract_reset_token(email_body):
+    """Pull the reset token query parameter out of an email body."""
+    for line in email_body.split("\n"):
+        if _RESET_PATH in line:
+            # Plain-text email may HTML-escape "&" as "&amp;".
+            cleaned = line.strip().replace("&amp;", "&")
+            parsed = urlparse(cleaned)
+            return parse_qs(parsed.query).get("token", [None])[0]
+    return None
+
 
 User = get_user_model()
 
@@ -84,7 +99,9 @@ class PasswordResetTaskTests(TestCase):
         )
 
         email = mail.outbox[0]
-        self.assertIn("/accounts/password-reset-confirm/", email.body)
+        self.assertIn(_RESET_PATH, email.body)
+        self.assertIn("token=", email.body)
+        self.assertIn("uid=", email.body)
 
     @override_settings(
         FRONTEND_APP_URL="https://frontend.example/",
@@ -132,20 +149,18 @@ class TestPasswordResetEmailTask(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         email_body = mail.outbox[0].body
 
-        # Extract token from email body
-        # Format: /accounts/password-reset-confirm/{uid}/{token}/
-        lines = email_body.split("\n")
+        # Extract reset link (frontend path with ?uid=&token=)
         reset_url = None
-        for line in lines:
-            if "/accounts/password-reset-confirm/" in line:
+        for line in email_body.split("\n"):
+            if _RESET_PATH in line:
                 reset_url = line.strip()
                 break
 
         self.assertIsNotNone(reset_url)
-        # Verify token is present and non-empty
-        parts = reset_url.split("/")
-        uid = parts[-3]
-        token = parts[-2]
+        # Plain-text email may HTML-escape "&" as "&amp;".
+        params = parse_qs(urlparse(reset_url.replace("&amp;", "&")).query)
+        uid = params.get("uid", [None])[0]
+        token = params.get("token", [None])[0]
         self.assertTrue(uid)
         self.assertTrue(token)
         self.assertGreater(len(token), 10)  # Token should be reasonably long
@@ -216,7 +231,7 @@ class TestPasswordResetEmailTask(TestCase):
         # Verify all required elements
         self.assertIn(self.user.username, email_body)
         self.assertIn("example.com", email_body)
-        self.assertIn("/accounts/password-reset-confirm/", email_body)
+        self.assertIn(_RESET_PATH, email_body)
         self.assertIn("24 小时", email_body)  # Expiration warning
         self.assertIn("重置您的密码", email_body)
 
@@ -235,7 +250,7 @@ class TestPasswordResetEmailTask(TestCase):
         # Verify all required elements
         self.assertIn(self.user.username, html_content)
         self.assertIn("example.com", html_content)
-        self.assertIn("/accounts/password-reset-confirm/", html_content)
+        self.assertIn(_RESET_PATH, html_content)
         self.assertIn("24 小时", html_content)  # Expiration warning
         self.assertIn("重置密码", html_content)  # Button text
         self.assertIn('href="', html_content)  # Has clickable link
@@ -251,7 +266,7 @@ class TestPasswordResetEmailTask(TestCase):
         )
 
         email_body = mail.outbox[0].body
-        self.assertIn("http://example.com/accounts/password-reset-confirm/", email_body)
+        self.assertIn(f"http://example.com{_RESET_PATH}", email_body)
         self.assertNotIn(
             "https://", email_body.replace("Open Share", "")
         )  # Exclude brand name
@@ -267,9 +282,7 @@ class TestPasswordResetEmailTask(TestCase):
         )
 
         email_body = mail.outbox[0].body
-        self.assertIn(
-            "https://example.com/accounts/password-reset-confirm/", email_body
-        )
+        self.assertIn(f"https://example.com{_RESET_PATH}", email_body)
 
     def test_different_domains_produce_correct_urls(self):
         """Test that different domains produce correct reset URLs."""
@@ -292,9 +305,7 @@ class TestPasswordResetEmailTask(TestCase):
             )
 
             email_body = mail.outbox[0].body
-            self.assertIn(
-                f"http://{domain}/accounts/password-reset-confirm/", email_body
-            )
+            self.assertIn(f"http://{domain}{_RESET_PATH}", email_body)
             self.assertIn(domain, email_body)
 
     def test_task_with_user_without_email(self):
@@ -397,17 +408,8 @@ class TestPasswordResetEmailTask(TestCase):
 
         email2_body = mail.outbox[0].body
 
-        # Extract tokens from both emails
-        def extract_token(body):
-            lines = body.split("\n")
-            for line in lines:
-                if "/accounts/password-reset-confirm/" in line:
-                    parts = line.strip().split("/")
-                    return parts[-2]  # Token is second to last
-            return None
-
-        token1 = extract_token(email1_body)
-        token2 = extract_token(email2_body)
+        token1 = _extract_reset_token(email1_body)
+        token2 = _extract_reset_token(email2_body)
 
         # Tokens should be different for different users
         self.assertNotEqual(token1, token2)

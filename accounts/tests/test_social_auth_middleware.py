@@ -13,7 +13,6 @@ from accounts.social_auth import (
     EmailConflictRequiresBinding,
     FrontendSocialCallbackNotConfigured,
     build_frontend_social_callback_url,
-    is_api_social_callback_target,
 )
 
 
@@ -25,46 +24,40 @@ class SocialAuthExceptionMiddlewareTests(TestCase):
         """Raise the custom social-auth conflict exception."""
         raise EmailConflictRequiresBinding(backend)
 
-    @patch("social_django.views.do_complete")
-    def test_web_social_conflict_redirects_to_sign_in_with_message(
-        self,
-        do_complete_mock,
-    ):
-        """Web social login conflicts should return users to the sign-in page."""
-        do_complete_mock.side_effect = self._raise_email_conflict
-
-        response = self.client.get(
-            reverse("social:complete", args=["github"]),
-            follow=True,
-        )
-
-        self.assertRedirects(response, reverse("accounts:sign_in"))
-        messages = list(response.context["messages"])
-        self.assertTrue(
-            any("该邮箱已绑定现有账号" in str(message) for message in messages)
-        )
-
     @override_settings(
         FRONTEND_APP_URL="https://frontend.example",
         FRONTEND_SOCIAL_CALLBACK_PATH="/auth/social/callback",
     )
     @patch("social_django.views.do_complete")
-    def test_api_social_conflict_redirects_to_frontend_callback(
+    def test_social_conflict_redirects_to_frontend_callback(
         self,
         do_complete_mock,
     ):
-        """API-initiated social login conflicts should return to the SPA callback."""
+        """Social login conflicts should redirect to the SPA callback with error code."""
         do_complete_mock.side_effect = self._raise_email_conflict
 
-        response = self.client.get(
-            f"{reverse('social:complete', args=['github'])}"
-            "?next=/api/v1/auth/social/github/callback"
-        )
+        response = self.client.get(reverse("social:complete", args=["github"]))
 
         self.assertEqual(response.status_code, 302)
         query = parse_qs(urlparse(response.url).query)
         self.assertEqual(query["provider"], ["github"])
         self.assertEqual(query["error"], [EMAIL_CONFLICT_ERROR_CODE])
+
+    def test_middleware_falls_back_to_root_when_frontend_unconfigured(self):
+        """Without FRONTEND_APP_URL the middleware should fall back to the SPA root."""
+        middleware = SocialAuthExceptionMiddleware(lambda request: None)
+        request = HttpRequest()
+        exception = EmailConflictRequiresBinding(backend="github")
+        request.backend = type("Backend", (), {"name": "github"})()
+
+        with patch(
+            "accounts.middleware.build_frontend_social_callback_url",
+            side_effect=FrontendSocialCallbackNotConfigured,
+        ):
+            self.assertEqual(
+                middleware.get_redirect_uri(request, exception),
+                "/",
+            )
 
     def test_middleware_direct_branches_for_fallbacks(self):
         """Direct middleware calls should cover custom and superclass fallback branches."""
@@ -99,17 +92,6 @@ class SocialAuthExceptionMiddlewareTests(TestCase):
             )
         base_get_redirect.assert_called_once_with(request, generic_error)
 
-        request.backend = type("Backend", (), {"name": "github"})()
-        request.GET = {"next": "/api/v1/auth/social/github/callback"}
-        with patch(
-            "accounts.middleware.build_frontend_social_callback_url",
-            side_effect=FrontendSocialCallbackNotConfigured,
-        ):
-            self.assertEqual(
-                middleware.get_redirect_uri(request, exception),
-                reverse("accounts:sign_in"),
-            )
-
     @override_settings(
         FRONTEND_APP_URL="https://frontend.example/",
         FRONTEND_SOCIAL_CALLBACK_PATH="/auth/social/callback",
@@ -119,13 +101,6 @@ class SocialAuthExceptionMiddlewareTests(TestCase):
         exception = EmailConflictRequiresBinding(backend="github")
 
         self.assertEqual(str(exception), EMAIL_CONFLICT_ERROR_CODE)
-        self.assertFalse(is_api_social_callback_target(None, "github"))
-        self.assertTrue(
-            is_api_social_callback_target(
-                "https://api.example/api/v1/auth/social/github/callback",
-                "github",
-            )
-        )
         self.assertEqual(
             build_frontend_social_callback_url("github", error="boom"),
             "https://frontend.example/auth/social/callback?provider=github&error=boom",

@@ -5,10 +5,13 @@ import re
 import time
 from urllib.parse import urlparse
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.cache import cache
 from django.db import OperationalError
 from django.test import TestCase
+from django.test.client import Client
 from playwright.sync_api import sync_playwright
 
 
@@ -135,12 +138,28 @@ class BrowserE2ETestCase(CacheClearMixin, StaticLiveServerTestCase):
         return context, page
 
     def login_via_ui(self, login_id, password):
-        """Authenticate through the normal sign-in form."""
-        self.goto("/accounts/login/")
-        self.page.fill("#login-id", login_id)
-        self.page.fill("#password", password)
-        self.page.locator("form#loginForm button[type='submit']").click()
-        self.page.wait_for_load_state("networkidle")
+        """
+        Authenticate programmatically and inject session cookie into browser.
+
+        Since the project no longer serves a form-based login page, this helper
+        uses Django's test client to authenticate and transfers the resulting
+        session cookie to the Playwright browser context.
+        """
+        User = get_user_model()
+        user = User.objects.get(username=login_id)
+        client = Client()
+        client.force_login(user)
+        session_cookie = client.cookies[settings.SESSION_COOKIE_NAME]
+        self.context.add_cookies(
+            [
+                {
+                    "name": settings.SESSION_COOKIE_NAME,
+                    "value": session_cookie.value,
+                    "domain": urlparse(self.live_server_url).hostname,
+                    "path": "/",
+                }
+            ]
+        )
 
     def login_admin_via_ui(self, username, password):
         """Authenticate through Django Admin's login form."""

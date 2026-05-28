@@ -135,27 +135,36 @@ class BrowserE2ETestCaseTests(SimpleTestCase):
         self.assertIs(new_page, page)
 
     def test_login_helpers_fill_forms_and_submit(self):
-        """User and admin login helpers drive the expected page interactions."""
+        """User login injects session cookie; admin login drives the form."""
         page = Mock()
         submit_button = Mock()
         page.locator.return_value = submit_button
+        context = Mock()
 
         case = self.make_case()
         case.page = page
+        case.context = context
         case.goto = Mock()
 
-        BrowserE2ETestCase.login_via_ui(case, "demo-user", "UserPass123!")
+        # login_via_ui uses force_login + cookie injection
+        with (
+            patch("common.test_utils.get_user_model") as mock_get_model,
+            patch("common.test_utils.Client") as mock_client_cls,
+        ):
+            mock_user = Mock()
+            mock_get_model.return_value.objects.get.return_value = mock_user
+            mock_client = Mock()
+            mock_client_cls.return_value = mock_client
+            mock_client.cookies = {"sessionid": Mock(value="fake-session-id")}
 
-        case.goto.assert_called_once_with("/accounts/login/")
-        page.fill.assert_has_calls(
-            [
-                call("#login-id", "demo-user"),
-                call("#password", "UserPass123!"),
-            ]
-        )
-        page.locator.assert_called_with("form#loginForm button[type='submit']")
-        submit_button.click.assert_called_once_with()
-        page.wait_for_load_state.assert_called_once_with("networkidle")
+            with self.settings(SESSION_COOKIE_NAME="sessionid"):
+                BrowserE2ETestCase.login_via_ui(case, "demo-user", "UserPass123!")
+
+            mock_client.force_login.assert_called_once_with(mock_user)
+            context.add_cookies.assert_called_once()
+            cookie_arg = context.add_cookies.call_args[0][0][0]
+            self.assertEqual(cookie_arg["name"], "sessionid")
+            self.assertEqual(cookie_arg["value"], "fake-session-id")
 
         page.reset_mock()
         submit_button.reset_mock()

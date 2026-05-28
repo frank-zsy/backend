@@ -17,16 +17,13 @@ logger = logging.getLogger(__name__)
 def _build_password_reset_url(
     domain: str, use_https: bool, uid: str, token: str
 ) -> str:
-    """Build the password-reset URL for either the frontend or Django pages."""
-    if settings.FRONTEND_APP_URL:
-        query = urlencode({"uid": uid, "token": token})
-        return (
-            f"{settings.FRONTEND_APP_URL.rstrip('/')}"
-            f"{settings.FRONTEND_PASSWORD_RESET_PATH}?{query}"
-        )
-
-    protocol = "https" if use_https else "http"
-    return f"{protocol}://{domain}/accounts/password-reset-confirm/{uid}/{token}/"
+    """Build the password-reset URL pointing to the SPA frontend."""
+    base = settings.FRONTEND_APP_URL
+    if not base:
+        protocol = "https" if use_https else "http"
+        base = f"{protocol}://{domain}"
+    query = urlencode({"uid": uid, "token": token})
+    return f"{base.rstrip('/')}{settings.FRONTEND_PASSWORD_RESET_PATH}?{query}"
 
 
 @task()
