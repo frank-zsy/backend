@@ -259,6 +259,10 @@ class ContributionService:
             if details is not None:
                 payload["details"] = details
 
+            top_repos = contrib.get("top_repos")
+            if top_repos is not None:
+                payload["top_repos"] = top_repos
+
             results.append(payload)
 
         return results

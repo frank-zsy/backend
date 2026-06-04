@@ -104,8 +104,18 @@ CONTRIBUTIONS_SQL = """
         platform,
         actor_id,
         argMax(actor_login, created_at) AS login,
-        SUM(openrank) AS or,
-        groupArray((repo_name, openrank, yyyymm)) AS details
+        SUM(openrank) AS total_or,
+        groupArray((repo_name, openrank, yyyymm)) AS details,
+        arraySlice(
+            arrayReverseSort(
+                x -> x.2,
+                arrayZip(
+                    mapKeys(sumMap(map(repo_name, toFloat64(openrank)))),
+                    mapValues(sumMap(map(repo_name, toFloat64(openrank))))
+                )
+            ),
+            1, 3
+        ) AS top_repos
     FROM normalized_community_openrank
     WHERE (
         (platform, repo_id) IN (
@@ -124,7 +134,7 @@ CONTRIBUTIONS_SQL = """
       AND toYYYYMM(created_at) >= {start_month:UInt32}
       AND toYYYYMM(created_at) <= {end_month:UInt32}
     GROUP BY platform, actor_id
-    ORDER BY or DESC
+    ORDER BY total_or DESC
     LIMIT 300000
 """
 
@@ -321,7 +331,7 @@ def _parse_contribution_rows(rows: list[Any]) -> list[dict[str, Any]]:
     Parse contribution query result rows.
 
     Expected column order: platform, actor_id, actor_login,
-    contribution_score, details.
+    contribution_score, details, top_repos.
     """
     contributions = []
     for row in rows:
@@ -330,6 +340,7 @@ def _parse_contribution_rows(rows: list[Any]) -> list[dict[str, Any]]:
         actor_login = row[2]
         contribution_score = row[3]
         details = row[4]
+        top_repos_raw = row[5] if len(row) > 5 else None
 
         payload = {
             "platform": platform,
@@ -339,6 +350,17 @@ def _parse_contribution_rows(rows: list[Any]) -> list[dict[str, Any]]:
         }
         if details is not None:
             payload["details"] = details
+
+        # Parse top_repos: array of tuples (repo_name, openrank)
+        if top_repos_raw is not None:
+            payload["top_repos"] = [
+                {
+                    "platform": platform,
+                    "repo_name": item[0],
+                    "openrank": round(float(item[1]), 2),
+                }
+                for item in top_repos_raw
+            ]
 
         contributions.append(payload)
 
@@ -665,14 +687,24 @@ def query_contributions_with_operators(
             platform,
             actor_id,
             argMax(actor_login, created_at) AS login,
-            SUM(openrank) AS or,
-            groupArray((repo_name, openrank, yyyymm)) AS details
+            SUM(openrank) AS total_or,
+            groupArray((repo_name, openrank, yyyymm)) AS details,
+            arraySlice(
+                arrayReverseSort(
+                    x -> x.2,
+                    arrayZip(
+                        mapKeys(sumMap(map(repo_name, toFloat64(openrank)))),
+                        mapValues(sumMap(map(repo_name, toFloat64(openrank))))
+                    )
+                ),
+                1, 3
+            ) AS top_repos
         FROM normalized_community_openrank
         WHERE {where_clause}
           AND toYYYYMM(created_at) >= {{start_month:UInt32}}
           AND toYYYYMM(created_at) <= {{end_month:UInt32}}
         GROUP BY platform, actor_id
-        ORDER BY or DESC
+        ORDER BY total_or DESC
         LIMIT 300000
     """  # noqa: S608
 
