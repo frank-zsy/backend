@@ -29,7 +29,8 @@ class ProfileFormTests(TestCase):
                 "bio": "Test bio",
                 "birth_date": "1990-01-01",
                 "company": "Test Company",
-                "location": "Test City",
+                "location_country_id": "Test City",
+                "location_subdivision_id": "",
                 "github_url": "https://github.com/testuser",
                 "homepage_url": "https://example.com",
                 "blog_url": "https://blog.example.com",
@@ -47,7 +48,8 @@ class ProfileFormTests(TestCase):
                 "bio": "",
                 "birth_date": "",
                 "company": "",
-                "location": "",
+                "location_country_id": "",
+                "location_subdivision_id": "",
                 "github_url": "",
                 "homepage_url": "",
                 "blog_url": "",
@@ -65,7 +67,8 @@ class ProfileFormTests(TestCase):
                 "bio": "Updated bio",
                 "birth_date": "1990-01-01",
                 "company": "Updated Company",
-                "location": "Updated City",
+                "location_country_id": "Updated City",
+                "location_subdivision_id": "",
                 "github_url": "https://github.com/updated",
                 "homepage_url": "",
                 "blog_url": "",
@@ -78,7 +81,7 @@ class ProfileFormTests(TestCase):
         profile = form.save()
         assert profile.bio == "Updated bio"
         assert profile.company == "Updated Company"
-        assert profile.location == "Updated City"
+        assert profile.location_country_id == "Updated City"
         assert profile.github_url == "https://github.com/updated"
 
     def test_profile_form_invalid_url(self):
@@ -88,7 +91,8 @@ class ProfileFormTests(TestCase):
                 "bio": "",
                 "birth_date": "",
                 "company": "",
-                "location": "",
+                "location_country_id": "",
+                "location_subdivision_id": "",
                 "github_url": "not-a-valid-url",
                 "homepage_url": "",
                 "blog_url": "",
@@ -105,7 +109,9 @@ class ProfileFormTests(TestCase):
         form = ProfileForm(instance=self.profile)
         assert "form-control" in form.fields["bio"].widget.attrs["class"]
         assert "form-control" in form.fields["company"].widget.attrs["class"]
-        assert "form-control" in form.fields["location"].widget.attrs["class"]
+        assert (
+            "form-control" in form.fields["location_country_id"].widget.attrs["class"]
+        )
 
 
 class WorkExperienceFormTests(TestCase):

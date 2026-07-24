@@ -76,18 +76,20 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display = (
         "user",
         "company",
-        "location",
+        "location_country_id",
+        "location_subdivision_id",
         "birth_date",
         "has_bio",
     )
-    list_filter = ("company", "location")
+    list_filter = ("company", "location_country_id")
     search_fields = (
         "user__username",
         "user__email",
         "user__first_name",
         "user__last_name",
         "company",
-        "location",
+        "location_country_id",
+        "location_subdivision_id",
         "bio",
     )
     readonly_fields = ("user",)
@@ -103,7 +105,12 @@ class UserProfileAdmin(admin.ModelAdmin):
         (
             "工作信息",
             {
-                "fields": ("company", "location"),
+                "fields": (
+                    "company",
+                    "location_country_id",
+                    "location_subdivision_id",
+                    "location_city_name",
+                ),
             },
         ),
         (

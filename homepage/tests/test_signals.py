@@ -71,7 +71,7 @@ class HomepageSearchCacheSignalTests(TestCase):
         )
 
         def action():
-            UserProfile.objects.create(user=user, location="Shanghai")
+            UserProfile.objects.create(user=user, location_country_id="Shanghai")
 
         self._assert_version_rotates(action)
 
@@ -82,11 +82,11 @@ class HomepageSearchCacheSignalTests(TestCase):
             email="signal-profile-update@example.com",
             password="pass1234",
         )
-        profile = UserProfile.objects.create(user=user, location="Shanghai")
+        profile = UserProfile.objects.create(user=user, location_country_id="Shanghai")
 
         def action():
-            profile.location = "Hangzhou"
-            profile.save(update_fields=["location"])
+            profile.location_country_id = "Hangzhou"
+            profile.save(update_fields=["location_country_id"])
 
         self._assert_version_rotates(action)
 
@@ -97,6 +97,6 @@ class HomepageSearchCacheSignalTests(TestCase):
             email="signal-profile-delete@example.com",
             password="pass1234",
         )
-        profile = UserProfile.objects.create(user=user, location="Shanghai")
+        profile = UserProfile.objects.create(user=user, location_country_id="Shanghai")
 
         self._assert_version_rotates(profile.delete)

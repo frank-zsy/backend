@@ -114,11 +114,28 @@ class UserProfile(models.Model):
         verbose_name="公司",
         db_index=True,
     )
-    location = models.CharField(
+    location_country_id = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        verbose_name="Location country ID",
+        db_index=True,
+        help_text="OpenDigger country tag ID, e.g. :divisions/CN",
+    )
+    location_subdivision_id = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        verbose_name="Location subdivision ID",
+        db_index=True,
+        help_text="OpenDigger subdivision tag ID, e.g. :divisions/CN/CN-BJ",
+    )
+    location_city_name = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name="位置",
-        db_index=True,
+        default="",
+        verbose_name="Location city name",
+        help_text="City name from OpenDigger subdivision cities, stored as name_zh",
     )
 
     class Meta:

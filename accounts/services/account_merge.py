@@ -68,7 +68,8 @@ def _copy_profile_fields(source_profile: UserProfile, target_profile: UserProfil
         "twitter_url",
         "linkedin_url",
         "company",
-        "location",
+        "location_country_id",
+        "location_subdivision_id",
     )
     for field in updatable_fields:
         target_value = getattr(target_profile, field)

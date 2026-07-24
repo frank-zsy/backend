@@ -37,7 +37,7 @@ class SearchFilters:
 def _apply_optional_filters(queryset, filters: SearchFilters):
     """Apply optional location and company filters."""
     lookups = {
-        "profile__location__icontains": filters.location,
+        "profile__location_country_id__icontains": filters.location,
         "profile__company__icontains": filters.company,
     }
     criteria = {lookup: value for lookup, value in lookups.items() if value}
@@ -78,7 +78,7 @@ def _serialize_user(user):
         "display_name": user.get_full_name() or user.username,
         "bio": getattr(profile, "bio", "") or "",
         "company": getattr(profile, "company", "") or "",
-        "location": getattr(profile, "location", "") or "",
+        "location": getattr(profile, "location_country_id", "") or "",
         "profile_url": f"/u/{user.username}",
         "avatar_url": f"https://ui-avatars.com/api/?name={user.username}&background=random",
     }

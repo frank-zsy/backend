@@ -133,6 +133,7 @@ def preview_recipients(
     languages: list[str] | None = None,
     countries: list[str] | None = None,
     regions: list[str] | None = None,
+    cities: list[str] | None = None,
     top_n: int | None = None,
 ) -> dict:
     """
@@ -148,7 +149,26 @@ def preview_recipients(
         top_n=top_n,
     )
 
+    # Filter by cities (match against UserProfile.location_city_name)
+    if cities:
+        from accounts.models import UserProfile
+
+        city_profiles = set(
+            UserProfile.objects.filter(location_city_name__in=cities).values_list(
+                "user_id", flat=True
+            )
+        )
+        # We'll filter matched users after registration matching
+        _city_filter = city_profiles
+    else:
+        _city_filter = None
+
     matched = _match_registered_users(developers)
+
+    # Apply city filter if specified
+    if _city_filter is not None:
+        matched = [m for m in matched if m["user_id"] in _city_filter]
+
     registered_count = len(matched)
     cost_per_user = settings.OUTREACH_COST_PER_USER
     reward_ratio = settings.OUTREACH_REWARD_RATIO
@@ -218,6 +238,7 @@ def send_outreach(
     regions: list[str] | None,
     top_n: int | None,
     point_type: str,
+    cities: list[str] | None = None,
 ) -> OutreachCampaign:
     """
     Execute the outreach campaign.
@@ -234,6 +255,7 @@ def send_outreach(
         languages=languages,
         countries=countries,
         regions=regions,
+        cities=cities,
         top_n=top_n,
     )
 
@@ -266,6 +288,7 @@ def send_outreach(
         languages=languages or [],
         countries=countries or [],
         regions=regions or [],
+        cities=cities or [],
         top_n=top_n,
         point_type=point_type,
         cost_per_user=cost_per_user,
@@ -536,6 +559,7 @@ def get_campaign_detail(campaign_id: int, author) -> dict:
         "languages": campaign.languages,
         "countries": campaign.countries,
         "regions": campaign.regions,
+        "cities": campaign.cities,
         "top_n": campaign.top_n,
         "point_type": campaign.point_type,
         "cost_per_user": campaign.cost_per_user,

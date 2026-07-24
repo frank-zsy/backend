@@ -30,7 +30,9 @@ class ProfileForm(forms.ModelForm):
             "twitter_url",
             "linkedin_url",
             "company",
-            "location",
+            "location_country_id",
+            "location_subdivision_id",
+            "location_city_name",
         ]
         widgets = {
             "bio": forms.Textarea(
@@ -70,8 +72,11 @@ class ProfileForm(forms.ModelForm):
             "company": forms.TextInput(
                 attrs={"class": "form-control", "placeholder": "公司名称"},
             ),
-            "location": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "城市, 国家"},
+            "location_country_id": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": ":divisions/CN"},
+            ),
+            "location_subdivision_id": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": ":divisions/CN/CN-BJ"},
             ),
         }
 

@@ -42,6 +42,7 @@ class PreviewRequestSchema(Schema):
     languages: list[str] | None = None
     countries: list[str] | None = None
     regions: list[str] | None = None
+    cities: list[str] | None = None
     top_n: int | None = None
 
 
@@ -52,6 +53,7 @@ class SendRequestSchema(Schema):
     languages: list[str] | None = None
     countries: list[str] | None = None
     regions: list[str] | None = None
+    cities: list[str] | None = None
     top_n: int | None = None
     point_type: str  # 'cash' or 'gift'
 
@@ -222,6 +224,7 @@ def preview_endpoint(request, payload: PreviewRequestSchema):
         languages=payload.languages,
         countries=payload.countries,
         regions=payload.regions,
+        cities=payload.cities,
         top_n=payload.top_n,
     )
     return result
@@ -257,6 +260,7 @@ def send_endpoint(request, payload: SendRequestSchema):
             languages=payload.languages,
             countries=payload.countries,
             regions=payload.regions,
+            cities=payload.cities,
             top_n=payload.top_n,
             point_type=payload.point_type,
         )

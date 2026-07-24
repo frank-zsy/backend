@@ -23,7 +23,9 @@ def serialize_profile(profile) -> dict:
         "twitter_url": profile.twitter_url,
         "linkedin_url": profile.linkedin_url,
         "company": profile.company,
-        "location": profile.location,
+        "location_country_id": profile.location_country_id,
+        "location_subdivision_id": profile.location_subdivision_id,
+        "location_city_name": profile.location_city_name,
     }
 
 

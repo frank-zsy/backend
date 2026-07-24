@@ -55,6 +55,7 @@ class OutreachCampaign(models.Model):
     languages = models.JSONField(default=list)
     countries = models.JSONField(default=list)
     regions = models.JSONField(default=list)
+    cities = models.JSONField(default=list)
     top_n = models.PositiveIntegerField(null=True, blank=True)
 
     # Points info

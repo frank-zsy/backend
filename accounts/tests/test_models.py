@@ -83,7 +83,7 @@ class UserProfileModelTests(TestCase):
             twitter_url="https://twitter.com/testuser",
             linkedin_url="https://linkedin.com/in/testuser",
             company="Test Company",
-            location="Test City",
+            location_country_id="Test City",
         )
 
         assert profile.user == self.user
@@ -91,7 +91,7 @@ class UserProfileModelTests(TestCase):
         assert profile.birth_date == date(1990, 1, 1)
         assert profile.github_url == "https://github.com/testuser"
         assert profile.company == "Test Company"
-        assert profile.location == "Test City"
+        assert profile.location_country_id == "Test City"
 
     def test_user_profile_str(self):
         """Test string representation of user profile."""

@@ -24,7 +24,7 @@ class HomepageApiV1Tests(TestCase):
         UserProfile.objects.create(
             user=self.alice,
             company="OpenShare",
-            location="Shanghai",
+            location_country_id="Shanghai",
             bio="Core contributor",
         )
 
@@ -37,7 +37,7 @@ class HomepageApiV1Tests(TestCase):
         UserProfile.objects.create(
             user=self.bob,
             company="Example Inc",
-            location="Beijing",
+            location_country_id="Beijing",
             bio="Community member",
         )
         self.bob.profile.birth_date = "1990-01-01"

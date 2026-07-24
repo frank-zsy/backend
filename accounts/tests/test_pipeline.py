@@ -161,7 +161,6 @@ class UpdateUserProfileFromGithubTests(TestCase):
         response = {
             "login": "testuser",
             "bio": "Test bio",
-            "location": "Test City",
             "company": "Test Company",
             "html_url": "https://github.com/testuser",
             "blog": "https://example.com",
@@ -177,7 +176,6 @@ class UpdateUserProfileFromGithubTests(TestCase):
         self.assertTrue(UserProfile.objects.filter(user=self.user).exists())
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(profile.bio, "Test bio")
-        self.assertEqual(profile.location, "Test City")
         self.assertEqual(profile.company, "Test Company")
         self.assertEqual(profile.github_url, "https://github.com/testuser")
         self.assertEqual(profile.homepage_url, "https://example.com")
@@ -187,13 +185,11 @@ class UpdateUserProfileFromGithubTests(TestCase):
         profile = UserProfile.objects.create(
             user=self.user,
             bio="Existing bio",
-            location="",
             company="",
         )
 
         response = {
             "bio": "New bio from GitHub",
-            "location": "New City",
             "company": "New Company",
         }
 
@@ -206,7 +202,6 @@ class UpdateUserProfileFromGithubTests(TestCase):
 
         profile.refresh_from_db()
         self.assertEqual(profile.bio, "Existing bio")
-        self.assertEqual(profile.location, "New City")
         self.assertEqual(profile.company, "New Company")
 
     def test_strips_at_symbol_from_company(self):
@@ -276,7 +271,7 @@ class UpdateUserProfileFromGithubTests(TestCase):
         update_user_profile_from_github(
             backend=self.backend_other,
             details={},
-            response={"bio": "Test bio", "location": "Test City"},
+            response={"bio": "Test bio"},
             user=self.user,
         )
 
@@ -305,14 +300,13 @@ class UpdateUserProfileFromGithubTests(TestCase):
 
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(profile.bio, "")
-        self.assertEqual(profile.location, "")
         self.assertEqual(profile.company, "")
         self.assertEqual(profile.github_url, "")
         self.assertEqual(profile.homepage_url, "")
 
     def test_idempotent_multiple_calls(self):
         """Test that multiple calls with same data don't cause issues."""
-        response = {"bio": "Test bio", "location": "Test City"}
+        response = {"bio": "Test bio", "company": "Test Co"}
 
         update_user_profile_from_github(
             backend=self.backend_github,
@@ -329,7 +323,6 @@ class UpdateUserProfileFromGithubTests(TestCase):
 
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(profile.bio, "Test bio")
-        self.assertEqual(profile.location, "Test City")
         self.assertEqual(UserProfile.objects.count(), 1)
 
     def test_does_not_update_if_all_fields_filled(self):
@@ -337,7 +330,6 @@ class UpdateUserProfileFromGithubTests(TestCase):
         profile = UserProfile.objects.create(
             user=self.user,
             bio="Existing bio",
-            location="Existing City",
             company="Existing Company",
             github_url="https://github.com/existing",
             homepage_url="https://existing.com",
@@ -348,7 +340,6 @@ class UpdateUserProfileFromGithubTests(TestCase):
             details={},
             response={
                 "bio": "New bio",
-                "location": "New City",
                 "company": "New Company",
                 "html_url": "https://github.com/new",
                 "blog": "https://new.com",
@@ -358,7 +349,6 @@ class UpdateUserProfileFromGithubTests(TestCase):
 
         profile.refresh_from_db()
         self.assertEqual(profile.bio, "Existing bio")
-        self.assertEqual(profile.location, "Existing City")
         self.assertEqual(profile.company, "Existing Company")
         self.assertEqual(profile.github_url, "https://github.com/existing")
         self.assertEqual(profile.homepage_url, "https://existing.com")

@@ -98,9 +98,10 @@ class SocialAuthGenericExceptionMiddleware:
         if not provider:
             return None
 
-        logger.exception(
+        logger.error(
             "Unexpected error during social auth flow for provider %s",
             provider,
+            exc_info=exception,
         )
 
         try:

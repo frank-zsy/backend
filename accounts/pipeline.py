@@ -133,15 +133,8 @@ def update_user_profile_from_github(
             extra={"user_id": user.id, "field": "bio"},
         )
 
-    # Update location if empty
-    if not profile.location and response.get("location"):
-        profile.location = response["location"]
-        updated = True
-        logger.info(
-            "Updated location for user %s from GitHub",
-            user.username,
-            extra={"user_id": user.id, "field": "location"},
-        )
+    # Note: location_country_id and location_subdivision_id are not synced
+    # from GitHub as they use OpenDigger structured tag IDs.
 
     # Update company if empty
     if not profile.company and response.get("company"):

@@ -64,7 +64,9 @@ PROFILE_FIELDS = [
     "twitter_url",
     "linkedin_url",
     "company",
-    "location",
+    "location_country_id",
+    "location_subdivision_id",
+    "location_city_name",
 ]
 WORK_FIELDS = ["company_name", "title", "start_date", "end_date", "description"]
 EDUCATION_FIELDS = [
@@ -94,7 +96,9 @@ class ProfileUpdateSchema(Schema):
     twitter_url: str | None = None
     linkedin_url: str | None = None
     company: str | None = None
-    location: str | None = None
+    location_country_id: str | None = None
+    location_subdivision_id: str | None = None
+    location_city_name: str | None = None
 
 
 class WorkExperienceCreateSchema(Schema):
@@ -203,7 +207,9 @@ def _profile_payload(profile):
             "twitter_url": "",
             "linkedin_url": "",
             "company": "",
-            "location": "",
+            "location_country_id": "",
+            "location_subdivision_id": "",
+            "location_city_name": "",
         }
     return serialize_profile(profile)
 

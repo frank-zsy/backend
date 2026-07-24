@@ -653,13 +653,15 @@ def query_contributions_with_operators(
 LANGUAGE_LIST_CACHE_TTL = 28800  # 8 hours
 LANGUAGE_LIST_CACHE_KEY = "outreach:languages"
 
-# TODO(team): Confirm the actual table name; it might be  # noqa: TD003, FIX002
-# `opensource.gh_repo_info` or `default.repo_info` depending on the schema.
+# The programming language column in opensource.gh_repo_info is
+# `primary_language`. Languages are ordered by the number of distinct repos
+# using them (descending) so that the most common languages come first.
 AVAILABLE_LANGUAGES_SQL = """
-    SELECT DISTINCT language
+    SELECT primary_language
     FROM opensource.gh_repo_info
-    WHERE language IS NOT NULL AND language != ''
-    ORDER BY language
+    WHERE primary_language IS NOT NULL AND primary_language != ''
+    GROUP BY primary_language
+    ORDER BY COUNT(DISTINCT id) DESC
 """
 
 
@@ -681,7 +683,8 @@ def get_available_languages() -> list[str]:
     try:
         result = ClickHouseDB.query(AVAILABLE_LANGUAGES_SQL)
         rows = _get_result_rows(result)
-        languages = sorted([row[0] for row in rows if row[0]])
+        # Preserve the query ordering (most common languages first).
+        languages = [row[0] for row in rows if row[0]]
         logger.info("Fetched %d available languages from ClickHouse", len(languages))
         if languages:
             search_cache.set(
@@ -762,12 +765,10 @@ def query_developers_for_outreach(
         escaped_langs = ", ".join(
             f"'{lang.replace(chr(39), '')}'" for lang in languages
         )
-        # TODO(team): Confirm gh_repo_info table name and that it has  # noqa: TD003, FIX002
-        # columns (platform, repo_id, language) matching normalized_community_openrank.
         language_filter = (
             f"AND (platform, repo_id) IN ("  # noqa: S608
             f"SELECT platform, repo_id FROM opensource.gh_repo_info "
-            f"WHERE language IN ({escaped_langs})"
+            f"WHERE primary_language IN ({escaped_langs})"
             f")"
         )
 

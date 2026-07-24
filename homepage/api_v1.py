@@ -108,7 +108,7 @@ def _public_profile_payload(user) -> PublicProfileSchema:
         twitter_url=getattr(profile, "twitter_url", "") or "",
         linkedin_url=getattr(profile, "linkedin_url", "") or "",
         company=getattr(profile, "company", "") or "",
-        location=getattr(profile, "location", "") or "",
+        location=getattr(profile, "location_country_id", "") or "",
     )
 
 
@@ -168,13 +168,13 @@ def public_user_search_endpoint(
             | Q(first_name__icontains=query)
             | Q(last_name__icontains=query)
             | Q(profile__company__icontains=query)
-            | Q(profile__location__icontains=query)
+            | Q(profile__location_country_id__icontains=query)
         )
         .select_related("profile")
         .distinct()
     )
     users_qs = _apply_optional_filters(users_qs, filters).order_by(*filters.ordering())
-    available_locations = _collect_available_values(users_qs, "location")
+    available_locations = _collect_available_values(users_qs, "location_country_id")
     available_companies = _collect_available_values(users_qs, "company")
 
     total_matches = users_qs.count()
