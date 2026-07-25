@@ -137,6 +137,11 @@ class UserProfile(models.Model):
         verbose_name="Location city name",
         help_text="City name from OpenDigger subdivision cities, stored as name_zh",
     )
+    profile_completion_rewarded = models.BooleanField(
+        default=False,
+        verbose_name="Profile completion rewarded",
+        help_text="Whether the user has claimed the profile completion reward",
+    )
 
     class Meta:
         """Meta configuration for UserProfile."""

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from accounts.backends import GiteeOAuth2, HuggingFaceOAuth2
+from accounts.backends import AtomGitOAuth2, GiteeOAuth2, HuggingFaceOAuth2
 
 
 class HuggingFaceOAuth2Tests(TestCase):
@@ -435,3 +435,89 @@ class GiteeOAuth2Tests(TestCase):
     def test_scope_separator(self):
         """Test that scope separator is a space."""
         self.assertEqual(self.backend.SCOPE_SEPARATOR, " ")
+
+
+class AtomGitOAuth2Tests(TestCase):
+    """Tests for AtomGit OAuth2 backend."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.backend = AtomGitOAuth2()
+
+    def test_id_key_is_external_uid(self):
+        """Test that ID key uses external_uid instead of internal id."""
+        self.assertEqual(self.backend.ID_KEY, "external_uid")
+
+    def test_extra_data_stores_external_uid_not_id(self):
+        """Test that EXTRA_DATA stores external_uid and no longer stores id."""
+        keys = [entry[0] for entry in self.backend.EXTRA_DATA]
+        self.assertIn("external_uid", keys)
+        self.assertNotIn("id", keys)
+
+    def test_get_user_id_uses_external_uid(self):
+        """Test that get_user_id returns the string external_uid."""
+        response = {"external_uid": 9001, "login": "alice"}
+        self.assertEqual(self.backend.get_user_id({}, response), "9001")
+
+    @patch.object(AtomGitOAuth2, "get_json")
+    def test_user_data_injects_external_uid_and_drops_id(self, mock_get_json):
+        """Test that user_data carries external_uid over and drops internal id."""
+        mock_get_json.side_effect = [
+            # /api/v5/user basic info
+            {
+                "id": "64f1a2b3c4d5e6f7a8b9c0d1",
+                "login": "alice",
+                "external_uid": "9001",
+            },
+            # /api/v5/users/{username} full profile
+            {
+                "id": "64f1a2b3c4d5e6f7a8b9c0d1",
+                "login": "alice",
+                "name": "Alice",
+                "avatar_url": "https://atomgit.com/alice.png",
+            },
+        ]
+
+        result = self.backend.user_data("token")
+
+        self.assertEqual(result["external_uid"], "9001")
+        self.assertNotIn("id", result)
+        self.assertEqual(result["login"], "alice")
+        mock_get_json.assert_any_call(
+            "https://api.atomgit.com/api/v5/user",
+            params={"access_token": "token"},
+        )
+        mock_get_json.assert_any_call(
+            "https://api.atomgit.com/api/v5/users/alice",
+            params={"access_token": "token"},
+        )
+
+    @patch.object(AtomGitOAuth2, "get_json")
+    def test_user_data_without_login_returns_basic_info(self, mock_get_json):
+        """Test that missing login falls back to basic info without id."""
+        mock_get_json.return_value = {
+            "id": "64f1a2b3c4d5e6f7a8b9c0d1",
+            "external_uid": "9002",
+        }
+
+        result = self.backend.user_data("token")
+
+        self.assertEqual(result["external_uid"], "9002")
+        self.assertNotIn("id", result)
+        mock_get_json.assert_called_once_with(
+            "https://api.atomgit.com/api/v5/user",
+            params={"access_token": "token"},
+        )
+
+    def test_get_user_details(self):
+        """Test get_user_details maps login/email/name correctly."""
+        response = {
+            "login": "alice",
+            "email": "alice@example.com",
+            "name": "Alice Wonder",
+        }
+        details = self.backend.get_user_details(response)
+        self.assertEqual(details["username"], "alice")
+        self.assertEqual(details["email"], "alice@example.com")
+        self.assertEqual(details["first_name"], "Alice")
+        self.assertEqual(details["last_name"], "Wonder")

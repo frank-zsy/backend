@@ -163,10 +163,12 @@ class AtomGitOAuth2(BaseOAuth2):
 
     DEFAULT_SCOPE = ["user"]
     SCOPE_SEPARATOR = ","
-    ID_KEY = "id"
+    # AtomGit's internal id is not stored; external_uid from /api/v5/user is
+    # used as the stable identifier instead.
+    ID_KEY = "external_uid"
 
     EXTRA_DATA = [
-        ("id", "id"),
+        ("external_uid", "external_uid"),
         ("login", "username"),
         ("name", "name"),
         ("email", "email"),
@@ -189,20 +191,26 @@ class AtomGitOAuth2(BaseOAuth2):
 
     def user_data(self, access_token, *args, **kwargs):
         """Fetch user profile from AtomGit /api/v5/users/:username endpoint."""
-        # First, get the authenticated user's login name
+        # First, get the authenticated user's basic info (contains external_uid)
         basic_info = self.get_json(
             "https://api.atomgit.com/api/v5/user",
             params={"access_token": access_token},
         )
+        external_uid = basic_info.get("external_uid", "")
         username = basic_info.get("login", "")
         if not username:
+            basic_info.pop("id", None)
             return basic_info
         # Then fetch the full user profile
-        return self.get_json(
+        profile = self.get_json(
             self.USER_DATA_URL.format(username=username),
             params={"access_token": access_token},
         )
+        # Carry over external_uid as the identifier; drop the internal id field
+        profile["external_uid"] = external_uid
+        profile.pop("id", None)
+        return profile
 
     def get_user_id(self, details, response):
-        """AtomGit uses string IDs (MongoDB ObjectId)."""
+        """AtomGit uses the string external_uid as the user identifier."""
         return str(response.get(self.ID_KEY, ""))

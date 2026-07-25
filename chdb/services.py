@@ -712,6 +712,50 @@ def _compute_outreach_date_range() -> tuple[int, int]:
     return start_month, end_month
 
 
+def query_user_yearly_openrank(
+    platform_ids: list[tuple[str, str]],
+) -> list[dict[str, Any]]:
+    """
+    Query a user's yearly OpenRank contribution totals across platforms.
+
+    Args:
+        platform_ids: List of (platform, actor_id) tuples,
+            e.g. [('github', '12345'), ('gitee', '67890')]
+
+    Returns:
+        List of dicts with 'year' (int) and 'yearly_openrank' (float).
+
+    Raises:
+        Exception: Propagates ClickHouse query errors so callers can
+            distinguish transient failures from genuinely empty results.
+
+    """
+    if not platform_ids:
+        return []
+
+    # Build VALUES clause: ('github',1234),('gitee',67890)
+    values_parts = []
+    for platform, actor_id in platform_ids:
+        escaped_platform = platform.replace("'", "\\'")
+        escaped_actor_id = str(actor_id).replace("'", "\\'")
+        values_parts.append(f"('{escaped_platform}',{escaped_actor_id})")
+    values_clause = ",".join(values_parts)
+
+    sql = f"""
+        SELECT
+            toYear(created_at) AS year,
+            SUM(openrank) AS yearly_openrank
+        FROM normalized_community_openrank
+        WHERE (lower(platform), actor_id) IN ({values_clause})
+        GROUP BY year
+        ORDER BY year
+    """  # noqa: S608
+
+    result = ClickHouseDB.query(sql)
+    rows = _get_result_rows(result)
+    return [{"year": int(row[0]), "yearly_openrank": float(row[1])} for row in rows]
+
+
 def query_developers_for_outreach(
     tag_ids: list[str],
     languages: list[str] | None = None,

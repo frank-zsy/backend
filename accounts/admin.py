@@ -80,8 +80,9 @@ class UserProfileAdmin(admin.ModelAdmin):
         "location_subdivision_id",
         "birth_date",
         "has_bio",
+        "profile_completion_rewarded",
     )
-    list_filter = ("company", "location_country_id")
+    list_filter = ("company", "location_country_id", "profile_completion_rewarded")
     search_fields = (
         "user__username",
         "user__email",
@@ -99,7 +100,7 @@ class UserProfileAdmin(admin.ModelAdmin):
         (
             "基本信息",
             {
-                "fields": ("user", "bio", "birth_date"),
+                "fields": ("user", "bio", "birth_date", "profile_completion_rewarded"),
             },
         ),
         (

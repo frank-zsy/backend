@@ -45,6 +45,10 @@ from .models import (
 )
 from .services import AccountMergeError, perform_merge
 from .services.masking import mask_card, mask_name
+from .services.profile_completion_reward import (
+    get_profile_completion_reward_info,
+    grant_profile_completion_reward,
+)
 from .views import (
     _build_asset_snapshot,
     _expire_request_if_needed,
@@ -227,7 +231,7 @@ def current_profile_endpoint(request):
     """Return the authenticated user's profile summary."""
     profile = _get_profile_or_none(request.auth)
     balance = points_services.get_detailed_balance_or_zero(request.auth)
-    return {
+    response_data = {
         "user": {
             "id": request.auth.id,
             "username": request.auth.username,
@@ -236,6 +240,23 @@ def current_profile_endpoint(request):
         "profile": _profile_payload(profile),
         "balance": balance,
     }
+    # Only compute reward info when the user has a profile
+    if profile:
+        response_data["profile_completion_reward"] = get_profile_completion_reward_info(
+            request.auth
+        )
+    else:
+        response_data["profile_completion_reward"] = {
+            "eligible": False,
+            "reward_points": 0,
+            "missing_fields": [
+                "location",
+                "birth_date",
+                "work_experience",
+                "education",
+            ],
+        }
+    return response_data
 
 
 @router.patch("/profile", response={200: dict, 422: ErrorResponseSchema})
@@ -256,7 +277,12 @@ def update_profile_endpoint(request, payload: ProfileUpdateSchema):
 
     form.save()
     profile.refresh_from_db()
-    return {"profile": serialize_profile(profile)}
+    response_data = {"profile": serialize_profile(profile)}
+    # After successful profile update, check and grant completion reward
+    reward_result = grant_profile_completion_reward(request.auth)
+    if reward_result:
+        response_data["profile_completion_reward_granted"] = reward_result
+    return response_data
 
 
 @router.get("/work-experiences", response=dict)
@@ -290,7 +316,12 @@ def work_experience_create_endpoint(request, payload: WorkExperienceCreateSchema
     experience = form.save(commit=False)
     experience.profile = profile
     experience.save()
-    return 201, serialize_work_experience(experience)
+    response_data = serialize_work_experience(experience)
+    # After successful work experience creation, check and grant completion reward
+    reward_result = grant_profile_completion_reward(request.auth)
+    if reward_result:
+        response_data["profile_completion_reward_granted"] = reward_result
+    return 201, response_data
 
 
 @router.patch(
@@ -366,7 +397,12 @@ def education_create_endpoint(request, payload: EducationCreateSchema):
     education = form.save(commit=False)
     education.profile = profile
     education.save()
-    return 201, serialize_education(education)
+    response_data = serialize_education(education)
+    # After successful education creation, check and grant completion reward
+    reward_result = grant_profile_completion_reward(request.auth)
+    if reward_result:
+        response_data["profile_completion_reward_granted"] = reward_result
+    return 201, response_data
 
 
 @router.patch(
