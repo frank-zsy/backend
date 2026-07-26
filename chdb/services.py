@@ -736,9 +736,9 @@ def query_user_yearly_openrank(
     # Build VALUES clause: ('github',1234),('gitee',67890)
     values_parts = []
     for platform, actor_id in platform_ids:
-        escaped_platform = platform.replace("'", "\\'")
+        escaped_platform = platform.lower().replace("'", "\\'")
         escaped_actor_id = str(actor_id).replace("'", "\\'")
-        values_parts.append(f"('{escaped_platform}',{escaped_actor_id})")
+        values_parts.append(f"('{escaped_platform}','{escaped_actor_id}')")
     values_clause = ",".join(values_parts)
 
     sql = f"""
@@ -746,7 +746,7 @@ def query_user_yearly_openrank(
             toYear(created_at) AS year,
             SUM(openrank) AS yearly_openrank
         FROM normalized_community_openrank
-        WHERE (lower(platform), actor_id) IN ({values_clause})
+        WHERE (lower(platform), toString(actor_id)) IN ({values_clause})
         GROUP BY year
         ORDER BY year
     """  # noqa: S608
