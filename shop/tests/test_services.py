@@ -823,7 +823,9 @@ class RedeemItemServiceTests(TestCase):
         item.allowed_tags.set([tag])
 
         # No tag_slug selected: tagged pools must not be spendable implicitly
-        with self.assertRaisesMessage(RedemptionError, "此商品需要使用指定标签的积分兑换"):
+        with self.assertRaisesMessage(
+            RedemptionError, "此商品需要使用指定标签的积分兑换"
+        ):
             redeem_item(user=tagged_user, item_id=item.id, point_type="gift")
 
         self.assertEqual(Redemption.objects.count(), 0)
@@ -851,7 +853,9 @@ class RedeemItemServiceTests(TestCase):
         )
         item.allowed_tags.set([tag])
 
-        with self.assertRaisesMessage(RedemptionError, "此商品需要使用指定标签的积分兑换"):
+        with self.assertRaisesMessage(
+            RedemptionError, "此商品需要使用指定标签的积分兑换"
+        ):
             redeem_item(user=self.user, item_id=item.id, point_type="gift")
 
         self.assertEqual(Redemption.objects.count(), 0)
@@ -885,7 +889,9 @@ class RedeemItemServiceTests(TestCase):
         )
         item.allowed_tags.set([tag])
 
-        with self.assertRaisesMessage(RedemptionError, "此商品需要使用指定标签的积分兑换"):
+        with self.assertRaisesMessage(
+            RedemptionError, "此商品需要使用指定标签的积分兑换"
+        ):
             redeem_item(
                 user=tagged_user, item_id=item.id, point_type="gift", tag_slug=""
             )
@@ -915,10 +921,10 @@ class RedeemItemServiceTests(TestCase):
         )
         item.allowed_tags.set([tag])
 
-        with self.assertRaisesMessage(RedemptionError, "此商品需要使用指定标签的积分兑换"):
-            redeem_item(
-                user=self.user, item_id=item.id, point_type="gift", tag_slug=""
-            )
+        with self.assertRaisesMessage(
+            RedemptionError, "此商品需要使用指定标签的积分兑换"
+        ):
+            redeem_item(user=self.user, item_id=item.id, point_type="gift", tag_slug="")
 
         self.assertEqual(Redemption.objects.count(), 0)
         # Tagged pool must remain untouched
