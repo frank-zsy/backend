@@ -80,6 +80,47 @@ class GetBalanceTests(TestCase):
         self.assertEqual(total_gift, 150)
         self.assertEqual(event_gift, 100)
 
+    def test_get_gift_balance_tag_is_null(self):
+        """tag_is_null=True returns only untagged gift balance."""
+        services.grant_points(
+            self.user, 100, PointType.GIFT, "Event reward", tag_slug="event"
+        )
+        services.grant_points(self.user, 50, PointType.GIFT, "General")
+
+        untagged_gift = services.get_balance(
+            self.user, PointType.GIFT, tag_is_null=True
+        )
+
+        self.assertEqual(untagged_gift, 50)
+        # Default remains the total gift balance (backward compatible)
+        self.assertEqual(services.get_balance(self.user, PointType.GIFT), 150)
+
+    def test_get_balance_tag_filters_require_gift_type(self):
+        """tag_slug/tag_is_null with non-gift point_type must raise."""
+        with self.assertRaisesMessage(
+            services.InvalidPointOperationError, "只有礼物积分可以按标签筛选"
+        ):
+            services.get_balance(self.user, PointType.CASH, tag_slug="event")
+
+        with self.assertRaisesMessage(
+            services.InvalidPointOperationError, "只有礼物积分可以按标签筛选"
+        ):
+            services.get_balance(self.user, PointType.CASH, tag_is_null=True)
+
+        with self.assertRaisesMessage(
+            services.InvalidPointOperationError, "只有礼物积分可以按标签筛选"
+        ):
+            services.get_balance(self.user, tag_is_null=True)
+
+    def test_get_balance_tag_and_tag_is_null_mutually_exclusive(self):
+        """tag_slug and tag_is_null cannot be used together."""
+        with self.assertRaisesMessage(
+            services.InvalidPointOperationError, "tag_slug 与 tag_is_null 不能同时使用"
+        ):
+            services.get_balance(
+                self.user, PointType.GIFT, tag_slug="event", tag_is_null=True
+            )
+
     def test_get_balance_invalid_type(self):
         """Test that invalid point type raises error."""
         with self.assertRaises(services.InvalidPointOperationError):
